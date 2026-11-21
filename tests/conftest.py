@@ -24,6 +24,8 @@ def test_settings(tmp_path) -> Settings:
         VECTOR_DB_PORT=8001,
         LOG_LEVEL="DEBUG",
         CORS_ORIGINS=["http://localhost:3000"],
+        LLM_PROVIDER="mock",
+        OLLAMA_BASE_URL="http://172.25.0.1:11434",
     )
 
 

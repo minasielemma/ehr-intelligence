@@ -29,6 +29,7 @@ from app.models.ingestion import (
     ProvenanceModel,
     ServiceRequestModel,
 )
+from app.models.summary import ClinicalSummaryModel
 
 __all__ = [
     "Base",
@@ -62,4 +63,5 @@ __all__ = [
     "ProvenanceModel",
     "PackageFileModel",
     "FHIRBundleModel",
+    "ClinicalSummaryModel",
 ]

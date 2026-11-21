@@ -40,9 +40,40 @@ class Settings(BaseSettings):
     VECTOR_DB_PORT: int = Field(default=8000, description="Internal service port for ChromaDB")
     VECTOR_DB_PATH: str = Field(default="/chroma/data", description="Filesystem storage path for ChromaDB")
 
-    LLM_PROVIDER: str = Field(default="openai", description="Active LLM provider: openai, anthropic, etc.")
+    LLM_PROVIDER: str = Field(default="ollama", description="Active LLM provider: ollama, anthropic, openai")
+    OLLAMA_BASE_URL: str = Field(
+        default="http://localhost:11434",
+        description="Base URL for local Ollama server (e.g. http://localhost:11434 or http://host.docker.internal:11434)",
+    )
+    OLLAMA_MODEL: str = Field(
+        default="gemma3:12b",
+        description="Model name to run on local Ollama server (e.g. gemma3:12b, llama3.1:8b)",
+    )
+    LLM_TEMPERATURE: float = Field(default=0.1, ge=0.0, le=2.0, description="Sampling temperature for clinical inference")
+    LLM_TIMEOUT: int = Field(default=120, ge=5, le=600, description="Request timeout in seconds for LLM generation")
+    LLM_MAX_OUTPUT_TOKENS: int = Field(default=1000, ge=100, le=8192, description="Maximum completion tokens")
+    LLM_MAX_RETRIES: int = Field(default=3, ge=1, le=10, description="Maximum bounded retry attempts on transient LLM failures")
+    LLM_BACKOFF_FACTOR: float = Field(default=1.5, ge=1.0, le=5.0, description="Exponential backoff multiplier")
+    LLM_CONCURRENCY_LIMIT: int = Field(
+        default=2,
+        ge=1,
+        le=16,
+        description="Max concurrent inference requests to avoid overwhelming local Ollama",
+    )
     OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API authentication key")
+    OPENAI_MODEL: str = Field(default="gpt-4o-mini", description="OpenAI model identifier")
     ANTHROPIC_API_KEY: Optional[str] = Field(default=None, description="Anthropic API authentication key")
+    ANTHROPIC_MODEL: str = Field(default="claude-3-5-sonnet-20241022", description="Anthropic Claude model identifier")
+
+    PROMPT_VERSION: str = Field(default="v1.0.0", description="Version of the clinical summarization prompt")
+    SUMMARY_CACHE_TTL_SECONDS: Optional[int] = Field(
+        default=None,
+        description="Optional time-to-live in seconds for clinical summary cache entries (None = indefinite until invalidated)",
+    )
+    REDACT_PHI_BEFORE_LLM: bool = Field(
+        default=True,
+        description="Redact or pseudonymize direct patient identifiers before sending prompt to LLM",
+    )
 
     EMBEDDING_MODEL: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",
@@ -131,6 +162,16 @@ class Settings(BaseSettings):
         if upper_v not in allowed:
             raise ValueError(f"Invalid log level: {v}. Must be one of {allowed}")
         return upper_v
+
+    @field_validator("LLM_PROVIDER")
+    @classmethod
+    def validate_llm_provider(cls, v: str) -> str:
+        """Validate supported LLM provider."""
+        allowed = {"ollama", "anthropic", "openai", "mock"}
+        lower_v = v.lower()
+        if lower_v not in allowed:
+            raise ValueError(f"Invalid LLM_PROVIDER: '{v}'. Must be one of {allowed}")
+        return lower_v
 
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":
