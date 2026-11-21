@@ -1,0 +1,10 @@
+# <type>(<scope>): <concise subject line (50-72 chars)>
+# -----------------------------------------------------------------------------
+# MANDATE: One commit per major task.
+# Allowed types: feat, fix, arch, refactor, perf, test, docs, ci, chore
+# Example: feat(fhir): implement FHIR R4 patient mapper and schema validation
+# -----------------------------------------------------------------------------
+# Detailed description of the major task:
+# - Task objective & rationale:
+# - Architectural / code components added or updated:
+# - Verification & test results:

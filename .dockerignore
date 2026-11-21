@@ -1,0 +1,43 @@
+# Version control
+.git
+.gitignore
+
+# Python virtual environments & bytecode
+.venv/
+env/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment files with secrets
+.env
+.env.*
+!.env.example
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+
+# Storage and persistent runtime data
+data/storage/*.db
+data/storage/*.sqlite3
+data/input/*
+!data/input/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+chroma/
+chroma_data/
+
+# Frontend dependencies and builds
+frontend/node_modules/
+frontend/dist/
+
+# Documentation and meta
+docs/
+*.md
+.idea/
+.vscode/

@@ -1,0 +1,32 @@
+# ==============================================================================
+# EHR Intelligence Platform - Python Dependencies
+# ==============================================================================
+
+# Web Framework & ASGI Server
+fastapi>=0.111.0,<0.116.0
+uvicorn[standard]>=0.30.0,<0.35.0
+python-multipart>=0.0.9
+
+# Data Validation & Centralized Settings
+pydantic>=2.7.0,<3.0.0
+pydantic-settings>=2.3.0,<3.0.0
+python-dotenv>=1.0.1
+
+# Asynchronous HTTP Client
+httpx>=0.27.0,<0.29.0
+
+# Healthcare Interoperability (FHIR R4)
+fhir.resources>=7.1.0,<8.0.0
+
+# Vector Database Client & Embeddings Foundation
+chromadb-client>=0.1.0
+sentence-transformers>=3.0.0
+
+# Structured Persistence Foundation (SQLite)
+sqlalchemy>=2.0.30,<2.1.0
+aiosqlite>=0.20.0,<0.21.0
+alembic>=1.13.0,<2.0.0
+
+# Testing Framework
+pytest>=8.2.0,<9.0.0
+pytest-asyncio>=0.23.7,<0.25.0

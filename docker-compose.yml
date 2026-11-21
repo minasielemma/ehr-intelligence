@@ -1,0 +1,118 @@
+name: ehr-intelligence
+
+services:
+  # ============================================================================
+  # ChromaDB Vector Store Service
+  # ============================================================================
+  chromadb:
+    image: chromadb/chroma:0.5.23
+    container_name: ehr-chromadb
+    restart: unless-stopped
+    ports:
+      # Expose to host on configurable port (default 8001) for local development debugging
+      - "${CHROMA_HOST_PORT:-8001}:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/data
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma_data:/chroma/data
+    networks:
+      - ehr-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ============================================================================
+  # Backend API Service (FastAPI + Uvicorn)
+  # ============================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/backend/Dockerfile
+    container_name: ehr-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - VECTOR_DB_HOST=chromadb
+      - VECTOR_DB_PORT=8000
+      - DATABASE_PATH=/app/data/storage/ehr.db
+    volumes:
+      # Mount application code for development hot reload
+      - .:/app
+      # Anonymous volume to isolate container-built bytecode
+      - /app/__pycache__
+      # Named persistent volumes for SQLite and application data
+      - sqlite_data:/app/data/storage
+      - app_data_input:/app/data/input
+      - app_data_processed:/app/data/processed
+    networks:
+      - ehr-network
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ============================================================================
+  # Frontend Development Service (Nginx Dev Server)
+  # ============================================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/frontend/Dockerfile
+    container_name: ehr-frontend
+    restart: unless-stopped
+    ports:
+      # Maps container port 3000 to host port 3001 by default to prevent host port collisions
+      - "${FRONTEND_PORT:-3001}:3000"
+    volumes:
+      # Mount frontend files for live UI hot reload
+      - ./frontend:/usr/share/nginx/html:ro
+    networks:
+      - ehr-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+# ==============================================================================
+# Persistent Named Volumes
+# ==============================================================================
+volumes:
+  sqlite_data:
+    name: ehr_sqlite_data
+    driver: local
+  chroma_data:
+    name: ehr_chroma_data
+    driver: local
+  app_data_input:
+    name: ehr_data_input
+    driver: local
+  app_data_processed:
+    name: ehr_data_processed
+    driver: local
+
+# ==============================================================================
+# Dedicated Bridge Network
+# ==============================================================================
+networks:
+  ehr-network:
+    name: ehr-network
+    driver: bridge
