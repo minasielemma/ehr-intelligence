@@ -22,8 +22,14 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
-# Pre-create data persistence directories and assign ownership to appuser
-RUN mkdir -p /app/data/storage /app/data/input /app/data/processed && \
+# Pre-download SentenceTransformer model weights for offline inference and fast cold start
+RUN python3 -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')" && \
+    mkdir -p /home/appuser/.cache && \
+    cp -r /root/.cache/* /home/appuser/.cache/ 2>/dev/null || true && \
+    chown -R appuser:appgroup /home/appuser/.cache
+
+# Pre-create data persistence directories including vector store and assign ownership to appuser
+RUN mkdir -p /app/data/storage/vector_store /app/data/input /app/data/processed && \
     chown -R appuser:appgroup /app/data
 
 # Copy project source code, migrations, and tests

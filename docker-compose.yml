@@ -46,6 +46,7 @@ services:
       - VECTOR_DB_HOST=chromadb
       - VECTOR_DB_PORT=8000
       - DATABASE_PATH=/app/data/storage/ehr.db
+      - VECTOR_STORE_PATH=/app/data/storage/vector_store
     volumes:
       # Mount application code for development hot reload
       - .:/app

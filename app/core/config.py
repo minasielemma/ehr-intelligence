@@ -79,6 +79,28 @@ class Settings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         description="HuggingFace model identifier for generating dense embeddings",
     )
+    VECTOR_STORE_PATH: str = Field(
+        default="/app/data/storage/vector_store",
+        description="Filesystem directory for persistent ChromaDB vector store",
+    )
+    SEARCH_TOP_K: int = Field(
+        default=5,
+        ge=1,
+        le=100,
+        description="Default number of search results to return",
+    )
+    SEARCH_CHUNK_SIZE: int = Field(
+        default=256,
+        ge=50,
+        le=2048,
+        description="Chunk size in approximate tokens/words for splitting long clinical narratives",
+    )
+    SEARCH_CHUNK_OVERLAP: int = Field(
+        default=32,
+        ge=0,
+        le=512,
+        description="Overlap between adjacent chunks for text splitting",
+    )
 
     CORS_ORIGINS: Union[List[str], str] = Field(
         default=[

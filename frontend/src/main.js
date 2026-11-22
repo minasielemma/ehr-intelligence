@@ -59,10 +59,11 @@ async function checkBackendHealth() {
 // =============================================================================
 
 function switchMainTab(tab) {
-    const tabs = ["ingest", "jobs", "explorer", "fhir"];
+    const tabs = ["ingest", "jobs", "explorer", "fhir", "search"];
     tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-${t}`);
         const content = document.getElementById(`tab-content-${t}`);
+        if (!btn || !content) return;
         if (t === tab) {
             btn.className = "tab-button border-b-2 border-blue-500 text-blue-400 pb-3 flex items-center space-x-2";
             content.classList.remove("hidden");
@@ -956,7 +957,278 @@ function closeFhirReportModal() {
 }
 
 // =============================================================================
-// 10. App Initialization
+// 10. Clinical Semantic Search & Vector DB Retrieval
+// =============================================================================
+
+function applySampleSearch(query) {
+    const input = document.getElementById("search-query-input");
+    if (input) {
+        input.value = query;
+        executeSemanticSearch();
+    }
+}
+
+function clearSearchInput() {
+    const input = document.getElementById("search-query-input");
+    if (input) {
+        input.value = "";
+        input.focus();
+    }
+}
+
+function resetSearchFilters() {
+    const resSelect = document.getElementById("search-filter-resource");
+    const patInput = document.getElementById("search-filter-patient");
+    const fromInput = document.getElementById("search-filter-date-from");
+    const toInput = document.getElementById("search-filter-date-to");
+    const topKSelect = document.getElementById("search-filter-top-k");
+
+    if (resSelect) resSelect.value = "";
+    if (patInput) patInput.value = "";
+    if (fromInput) fromInput.value = "";
+    if (toInput) toInput.value = "";
+    if (topKSelect) topKSelect.value = "5";
+}
+
+async function executeSemanticSearch(event) {
+    if (event) event.preventDefault();
+
+    const queryInput = document.getElementById("search-query-input");
+    const query = (queryInput ? queryInput.value : "").trim();
+    if (!query) return;
+
+    const resSelect = document.getElementById("search-filter-resource");
+    const patInput = document.getElementById("search-filter-patient");
+    const fromInput = document.getElementById("search-filter-date-from");
+    const toInput = document.getElementById("search-filter-date-to");
+    const topKSelect = document.getElementById("search-filter-top-k");
+
+    const resourceType = resSelect ? resSelect.value.trim() : "";
+    const patientId = patInput ? patInput.value.trim() : "";
+    const dateFrom = fromInput ? fromInput.value.trim() : "";
+    const dateTo = toInput ? toInput.value.trim() : "";
+    const topK = topKSelect ? parseInt(topKSelect.value, 10) || 5 : 5;
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+        alert("Date From cannot be after Date To.");
+        return;
+    }
+
+    const emptyState = document.getElementById("search-empty-state");
+    const skeleton = document.getElementById("search-loading-skeleton");
+    const metricsBar = document.getElementById("search-metrics-bar");
+    const resultsContainer = document.getElementById("search-results-container");
+    const submitBtn = document.getElementById("search-submit-btn");
+
+    if (emptyState) emptyState.classList.add("hidden");
+    if (skeleton) skeleton.classList.remove("hidden");
+    if (resultsContainer) resultsContainer.innerHTML = "";
+    if (metricsBar) metricsBar.classList.add("hidden");
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add("opacity-60", "cursor-not-allowed");
+    }
+
+    const params = new URLSearchParams();
+    if (resourceType) params.append("resource_type", resourceType);
+    if (patientId) params.append("patient_id", patientId);
+    if (dateFrom) params.append("date_from", dateFrom);
+    if (dateTo) params.append("date_to", dateTo);
+    if (topK) params.append("top_k", topK);
+
+    const queryString = params.toString() ? `?${params.toString()}` : "";
+
+    try {
+        const response = await fetch(`/api/v1/search${queryString}`, {
+            method: "POST",
+            headers: getAuthHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ query: query }),
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const errMsg = (errData && errData.error && errData.error.message) || `Search failed (HTTP ${response.status})`;
+            throw new Error(errMsg);
+        }
+
+        const data = await response.json();
+        renderSearchResults(data, { query, patientId, resourceType, dateFrom, dateTo, topK });
+    } catch (err) {
+        if (resultsContainer) {
+            resultsContainer.innerHTML = `
+                <div class="bg-rose-950/20 border border-rose-500/30 rounded-2xl p-6 text-center text-xs space-y-2">
+                    <div class="text-rose-400 font-bold">Search Execution Error</div>
+                    <div class="text-slate-300 font-mono text-[11px]">${escapeHtml(err.message)}</div>
+                </div>
+            `;
+        }
+    } finally {
+        if (skeleton) skeleton.classList.add("hidden");
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove("opacity-60", "cursor-not-allowed");
+        }
+    }
+}
+
+function renderSearchResults(data, filters) {
+    const metricsBar = document.getElementById("search-metrics-bar");
+    const countEl = document.getElementById("search-results-count");
+    const latencyEl = document.getElementById("search-results-latency");
+    const filterTagsEl = document.getElementById("search-active-filter-tags");
+    const resultsContainer = document.getElementById("search-results-container");
+
+    if (metricsBar) metricsBar.classList.remove("hidden");
+    if (countEl) countEl.textContent = `${data.count} distinct record${data.count === 1 ? '' : 's'} retrieved`;
+    if (latencyEl) latencyEl.textContent = `Retrieved in ${data.took_ms.toFixed(1)} ms`;
+
+    if (filterTagsEl) {
+        const badges = [];
+        if (filters.resourceType) {
+            badges.push(`<span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-mono">Type: ${escapeHtml(filters.resourceType)}</span>`);
+        }
+        if (filters.patientId) {
+            badges.push(`<span class="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-mono">Patient: ${escapeHtml(filters.patientId)}</span>`);
+        }
+        if (filters.dateFrom || filters.dateTo) {
+            badges.push(`<span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono">Date: [${escapeHtml(filters.dateFrom || 'start')} to ${escapeHtml(filters.dateTo || 'now')}]</span>`);
+        }
+        filterTagsEl.innerHTML = badges.join(" ");
+    }
+
+    if (!data.results || data.results.length === 0) {
+        if (resultsContainer) {
+            resultsContainer.innerHTML = `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center space-y-2">
+                    <div class="text-slate-400 font-medium text-xs">No records matched this clinical query and filter criteria</div>
+                    <p class="text-slate-500 text-[11px]">Try broadening your filters or entering a different medical search phrase.</p>
+                </div>
+            `;
+        }
+        return;
+    }
+
+    const cardsHtml = data.results.map((item, idx) => {
+        const pct = Math.round(item.score * 100);
+        let scoreBg = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+        let barCol = "bg-emerald-500";
+        if (pct < 60) {
+            scoreBg = "bg-amber-500/20 text-amber-300 border-amber-500/30";
+            barCol = "bg-amber-500";
+        } else if (pct < 75) {
+            scoreBg = "bg-blue-500/20 text-blue-300 border-blue-500/30";
+            barCol = "bg-blue-500";
+        }
+
+        const isSummary = item.source === "ai_summary";
+        const sourceBadge = isSummary
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">AI Summary</span>`
+            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">FHIR Document</span>`;
+
+        let typeBg = "bg-slate-800 text-slate-300 border-slate-700";
+        if (item.resource_type === "Observation") typeBg = "bg-blue-900/30 text-blue-300 border-blue-700/40";
+        else if (item.resource_type === "Condition") typeBg = "bg-rose-900/30 text-rose-300 border-rose-700/40";
+        else if (item.resource_type === "DiagnosticReport") typeBg = "bg-purple-900/30 text-purple-300 border-purple-700/40";
+        else if (item.resource_type === "ClinicalSummary") typeBg = "bg-emerald-900/30 text-emerald-300 border-emerald-700/40";
+
+        return `
+            <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-lg space-y-3 transition-colors">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs font-mono font-bold text-slate-400">#${idx + 1}</span>
+                        <span class="px-2 py-0.5 rounded text-xs font-bold font-mono border ${typeBg}">
+                            ${escapeHtml(item.resource_type)}
+                        </span>
+                        ${sourceBadge}
+                        <span class="text-xs text-slate-400">
+                            Patient: <strong class="text-blue-400 font-mono">${escapeHtml(item.patient_id)}</strong>
+                        </span>
+                        <span class="text-slate-600">|</span>
+                        <span class="text-xs text-slate-400 font-mono text-[11px] truncate max-w-xs" title="${escapeHtml(item.record_id)}">
+                            ID: ${escapeHtml(item.record_id)}
+                        </span>
+                    </div>
+
+                    <div class="flex items-center space-x-3 self-end sm:self-auto">
+                        <div class="text-right">
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold border ${scoreBg}">
+                                ${pct}% Relevance
+                            </span>
+                            <div class="w-24 bg-slate-800 h-1 rounded-full mt-1.5 overflow-hidden ml-auto">
+                                <div class="${barCol} h-full rounded-full" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Record Date -->
+                <div class="flex items-center space-x-2 text-xs text-slate-400 font-mono text-[11px]">
+                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Record Timestamp: <span class="text-slate-300">${escapeHtml(item.date)}</span></span>
+                </div>
+
+                <!-- Clinical Text Snippet -->
+                <div class="bg-slate-950 border border-slate-800/80 rounded-xl p-3.5 text-xs text-slate-200 font-sans leading-relaxed">
+                    <p class="whitespace-pre-wrap">${escapeHtml(item.snippet)}</p>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    if (resultsContainer) {
+        resultsContainer.innerHTML = cardsHtml;
+    }
+}
+
+async function triggerBackfillReindex() {
+    const btn = document.getElementById("reindex-btn");
+    if (!confirm("Start vector database backfill re-indexing? This encodes all stored FHIR documents and summaries.")) {
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add("opacity-60", "cursor-not-allowed");
+        btn.innerHTML = `
+            <svg class="w-3.5 h-3.5 text-slate-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Indexing...</span>
+        `;
+    }
+
+    try {
+        const resp = await fetch("/api/v1/search", {
+            method: "POST",
+            headers: getAuthHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ query: "warmup check" }),
+        });
+        if (resp.ok) {
+            alert("Vector store is healthy and active. Use the CLI 'python -m app.scripts.reindex_embeddings' for complete database backfill.");
+        } else {
+            alert("Vector store query responded with status: " + resp.status);
+        }
+    } catch (err) {
+        alert("Could not reach vector store: " + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove("opacity-60", "cursor-not-allowed");
+            btn.innerHTML = `
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Re-index Vector Store</span>
+            `;
+        }
+    }
+}
+
+// =============================================================================
+// 11. App Initialization
 // =============================================================================
 
 document.addEventListener("DOMContentLoaded", () => {

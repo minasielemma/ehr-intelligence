@@ -106,14 +106,22 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
-        logger.info("Request validation failed: %s", exc.errors())
+        from fastapi.encoders import jsonable_encoder
+
+        errors = jsonable_encoder(exc.errors())
+        sanitized_errors = [
+            {k: v for k, v in err.items() if k != "input"}
+            if isinstance(err, dict) else err
+            for err in errors
+        ]
+        logger.info("Request validation failed: %s", sanitized_errors)
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={
                 "error": {
                     "code": "REQUEST_VALIDATION_ERROR",
                     "message": "The request payload failed schema validation",
-                    "details": {"validation_errors": exc.errors()},
+                    "details": {"validation_errors": sanitized_errors},
                 }
             },
         )

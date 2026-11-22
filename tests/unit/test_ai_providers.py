@@ -168,8 +168,9 @@ async def test_ollama_provider_model_not_found_raises():
 
 
 @pytest.mark.asyncio
-async def test_anthropic_provider_missing_credentials_fails():
+async def test_anthropic_provider_missing_credentials_fails(monkeypatch):
     """Verify Anthropic provider raises 401 when API key is missing."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     settings = Settings(ANTHROPIC_API_KEY=None)
     provider = AnthropicProvider(settings=settings, api_key=None)
 

@@ -177,8 +177,37 @@ class SummaryCacheManager:
             execution_time_ms=execution_time_ms,
             file_path=file_path,
         )
+
+        try:
+            from app.search.indexing import (
+                delete_patient_summary_vectors_background,
+                spawn_background_task,
+                sync_index_summary_background,
+            )
+            summary_payload = {
+                "id": str(model.id),
+                "patient_id": str(model.patient_id),
+                "clinical_summary_text": summary.clinical_summary,
+                "summary_json": summary_dict,
+                "created_at": model.created_at or utc_now(),
+            }
+            spawn_background_task(sync_index_summary_background(summary_payload))
+        except Exception as bg_err:
+            logger.warning("Could not schedule background vector indexing for summary [%s]: %s", model.id, bg_err)
+
         return model
 
     async def invalidate_patient_cache(self, patient_id: str) -> int:
         """Purge all cached summaries for a patient."""
-        return await self.repository.delete_by_patient_id(patient_id)
+        deleted = await self.repository.delete_by_patient_id(patient_id)
+
+        try:
+            from app.search.indexing import (
+                delete_patient_summary_vectors_background,
+                spawn_background_task,
+            )
+            spawn_background_task(delete_patient_summary_vectors_background(patient_id))
+        except Exception as bg_err:
+            logger.warning("Could not schedule background vector deletion for patient [%s]: %s", patient_id, bg_err)
+
+        return deleted

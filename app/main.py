@@ -37,6 +37,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error("Failed to initialize database tables: %s", exc)
 
+    try:
+        from app.search.embeddings import get_embedding_generator
+        from app.search.vector_store import get_vector_store
+        v_store = get_vector_store(settings)
+        emb_gen = get_embedding_generator(settings.EMBEDDING_MODEL)
+        emb_gen.warmup()
+        logger.info("Semantic search vector store initialized (active vectors: %d)", v_store.count())
+    except Exception as exc:
+        logger.warning("Semantic search warmup encountered issue: %s", exc)
+
     yield
 
     logger.info("Shutting down %s gracefully...", settings.APP_NAME)
@@ -68,6 +78,8 @@ def create_application() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
     app.include_router(health_router, prefix="", tags=["System Health"])
+    from app.api.routes.search import router as search_router
+    app.include_router(search_router, prefix="", tags=["Semantic Search"])
 
     @app.get("/", status_code=status.HTTP_200_OK, tags=["Root"])
     async def root_index() -> Dict[str, str]:

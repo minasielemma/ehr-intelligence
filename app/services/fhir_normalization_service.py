@@ -214,6 +214,19 @@ class FHIRNormalizationService:
             version = bundle_model.version
             await self.session.commit()
             logger.info("Successfully validated and persisted FHIR Bundle [%s] (v%d) for patient [%s]", bundle_dict["id"], version, patient_id)
+
+            try:
+                from app.search.indexing import spawn_background_task, sync_index_bundle_background
+                spawn_background_task(
+                    sync_index_bundle_background(
+                        bundle_json=bundle_dict,
+                        patient_id=patient_id,
+                        bundle_id=bundle_dict["id"],
+                        created_at=bundle_model.created_at,
+                    )
+                )
+            except Exception as bg_err:
+                logger.warning("Could not schedule background vector indexing for bundle [%s]: %s", bundle_dict["id"], bg_err)
         elif not is_valid:
             logger.warning(
                 "Gatekeeper rejected invalid FHIR Bundle [%s] for patient [%s]. Errors: %d. Bundle NOT persisted.",
