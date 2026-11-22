@@ -1,7 +1,6 @@
-"""FastAPI endpoints for AI-Powered Clinical Summarization, Inference Caching, and Provider Diagnostics."""
-
-from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import time
+from typing import Any, Dict, List, Optional, Union
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_settings
@@ -9,7 +8,7 @@ from app.core.config import Settings
 from app.core.exceptions import AppException
 from app.core.logging import get_logger
 from app.core.security import verify_api_key
-from app.models.database import get_db_session
+from app.models.database import get_db_session, get_session_factory
 from app.schemas.summary import (
     BatchSummarizeRequest,
     BatchSummarizeResponse,
@@ -17,8 +16,10 @@ from app.schemas.summary import (
     LLMHealthResponse,
     SummarizeBundleRequest,
     SummarizePatientRequest,
+    SummaryTaskResponse,
 )
 from app.services.clinical_summarization_service import ClinicalSummarizationService
+from app.services.summary_task_manager import summary_task_manager
 
 logger = get_logger(__name__)
 
@@ -27,6 +28,60 @@ router = APIRouter(
     tags=["AI Clinical Summarization"],
     dependencies=[Depends(verify_api_key)],
 )
+
+
+async def _run_background_summary_generation(
+    db_url: str,
+    task_id: str,
+    patient_id: str,
+    bundle_id: Optional[str],
+    force_refresh: bool,
+    settings: Settings,
+) -> None:
+    """Execute clinical summary inference asynchronously in a background worker with isolated session."""
+    session_factory = get_session_factory(db_url)
+    start_time = time.perf_counter()
+    try:
+        async with session_factory() as session:
+            await summary_task_manager.mark_processing(task_id, session=session)
+            service = ClinicalSummarizationService(session=session, settings=settings)
+            summary, was_cached, latency_ms = await service.summarize_patient(
+                patient_id=patient_id,
+                bundle_id=bundle_id,
+                force_refresh=force_refresh,
+            )
+            await session.commit()
+            total_ms = (time.perf_counter() - start_time) * 1000.0
+            await summary_task_manager.mark_completed(
+                task_id=task_id,
+                summary=summary,
+                latency_ms=total_ms,
+                session=session,
+            )
+            logger.info(
+                "Background summary task [%s] for patient [%s] completed in %.2fs (was_cached=%s)",
+                task_id,
+                patient_id,
+                total_ms / 1000.0,
+                was_cached,
+            )
+    except Exception as exc:
+        total_ms = (time.perf_counter() - start_time) * 1000.0
+        logger.exception("Background summary task [%s] for patient [%s] failed: %s", task_id, patient_id, exc)
+        try:
+            async with session_factory() as session:
+                await summary_task_manager.mark_failed(
+                    task_id=task_id,
+                    error_message=str(exc),
+                    latency_ms=total_ms,
+                    session=session,
+                )
+        except Exception:
+            await summary_task_manager.mark_failed(
+                task_id=task_id,
+                error_message=str(exc),
+                latency_ms=total_ms,
+            )
 
 
 @router.post(
@@ -53,19 +108,49 @@ async def summarize_fhir_bundle(
 
 @router.post(
     "/summarize/patient/{patient_id}",
-    response_model=ClinicalSummaryResponse,
+    response_model=Union[ClinicalSummaryResponse, SummaryTaskResponse],
     status_code=status.HTTP_200_OK,
     summary="Summarize Persisted Patient Records",
-    description="Loads the patient's normalized FHIR Bundle from storage and generates or returns a cached clinical summary.",
+    description="Loads the patient's normalized FHIR Bundle from storage and generates or returns a cached clinical summary. Supports asynchronous execution via sync=false.",
 )
 async def summarize_stored_patient(
+    response: Response,
+    background_tasks: BackgroundTasks,
     patient_id: str,
     bundle_id: Optional[str] = Query(default=None, description="Optional bundle ID to summarize; defaults to latest"),
     force_refresh: bool = Query(default=False, description="Force re-inference bypassing the persistent cache"),
+    sync: bool = Query(default=True, description="Synchronous execution flag. If false, returns 202 Accepted and processes in background."),
     db: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_current_settings),
-) -> ClinicalSummaryResponse:
-    """Generate or retrieve clinical summary for a stored patient."""
+) -> Union[ClinicalSummaryResponse, SummaryTaskResponse]:
+    """Generate or retrieve clinical summary for a stored patient (sync or async)."""
+    if not sync:
+        response.status_code = status.HTTP_202_ACCEPTED
+        task_id, is_new = await summary_task_manager.create_or_get_task(
+            patient_id=patient_id,
+            bundle_id=bundle_id,
+            force_refresh=force_refresh,
+            session=db,
+        )
+        if is_new:
+            background_tasks.add_task(
+                _run_background_summary_generation,
+                db_url=settings.sqlite_url,
+                task_id=task_id,
+                patient_id=patient_id,
+                bundle_id=bundle_id,
+                force_refresh=force_refresh,
+                settings=settings,
+            )
+        task_data = (await summary_task_manager.get_task(task_id, session=db)) or {}
+        return SummaryTaskResponse(
+            task_id=task_id,
+            patient_id=patient_id,
+            status=task_data.get("status", "PENDING"),
+            message="AI clinical summary generation scheduled in background worker.",
+            created_at=task_data.get("created_at"),
+        )
+
     service = ClinicalSummarizationService(session=db, settings=settings)
     summary, _, _ = await service.summarize_patient(
         patient_id=patient_id,
@@ -74,6 +159,105 @@ async def summarize_stored_patient(
     )
     await db.commit()
     return summary
+
+
+@router.post(
+    "/summarize/patient/{patient_id}/regenerate",
+    response_model=SummaryTaskResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Asynchronously Regenerate Patient Clinical Summary",
+    description="Bypasses inference cache and asynchronously regenerates a fresh clinical summary in a background worker.",
+)
+async def regenerate_patient_summary_async(
+    response: Response,
+    background_tasks: BackgroundTasks,
+    patient_id: str,
+    bundle_id: Optional[str] = Query(default=None, description="Optional bundle ID to summarize; defaults to latest"),
+    db: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_current_settings),
+) -> SummaryTaskResponse:
+    """Asynchronously regenerate clinical summary for a patient."""
+    response.status_code = status.HTTP_202_ACCEPTED
+    task_id, is_new = await summary_task_manager.create_or_get_task(
+        patient_id=patient_id,
+        bundle_id=bundle_id,
+        force_refresh=True,  # Regeneration forces fresh inference
+        session=db,
+    )
+    if is_new:
+        background_tasks.add_task(
+            _run_background_summary_generation,
+            db_url=settings.sqlite_url,
+            task_id=task_id,
+            patient_id=patient_id,
+            bundle_id=bundle_id,
+            force_refresh=True,
+            settings=settings,
+        )
+    task_data = (await summary_task_manager.get_task(task_id, session=db)) or {}
+    return SummaryTaskResponse(
+        task_id=task_id,
+        patient_id=patient_id,
+        status=task_data.get("status", "PENDING"),
+        message="AI clinical summary regeneration scheduled in background worker.",
+        created_at=task_data.get("created_at"),
+    )
+
+
+@router.get(
+    "/summarize/status/{patient_id}",
+    response_model=SummaryTaskResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Asynchronous Summary Generation Status",
+    description="Checks the real-time status and result of background summary generation or regeneration for a patient.",
+)
+async def get_summary_generation_status(
+    patient_id: str,
+    task_id: Optional[str] = Query(default=None, description="Optional specific task ID to inspect"),
+    db: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_current_settings),
+) -> SummaryTaskResponse:
+    """Check status of asynchronous clinical summary generation."""
+    task_info = None
+    if task_id:
+        task_info = await summary_task_manager.get_task(task_id, session=db)
+    if not task_info:
+        task_info = await summary_task_manager.get_latest_task_for_patient(patient_id, session=db)
+
+    if task_info:
+        return SummaryTaskResponse(
+            task_id=task_info["task_id"],
+            patient_id=task_info["patient_id"],
+            status=task_info["status"],
+            message=task_info.get("message", f"Task status: {task_info['status']}"),
+            created_at=task_info["created_at"],
+            started_at=task_info.get("started_at"),
+            completed_at=task_info.get("completed_at"),
+            duration_seconds=task_info.get("duration_seconds"),
+            summary=task_info.get("summary"),
+            error_message=task_info.get("error_message"),
+        )
+
+    service = ClinicalSummarizationService(session=db, settings=settings)
+    latest_model = await service.summary_repo.get_latest_by_patient_id(patient_id)
+    if latest_model and latest_model.summary_json:
+        summary_obj = ClinicalSummaryResponse.model_validate(latest_model.summary_json)
+        return SummaryTaskResponse(
+            task_id=latest_model.id,
+            patient_id=patient_id,
+            status="COMPLETED",
+            message="Existing clinical summary available.",
+            created_at=latest_model.created_at,
+            completed_at=latest_model.updated_at,
+            duration_seconds=round(latest_model.execution_time_ms / 1000.0, 2),
+            summary=summary_obj,
+        )
+
+    raise AppException(
+        f"No summary task or existing summary found for patient '{patient_id}'",
+        status_code=status.HTTP_404_NOT_FOUND,
+    )
+
 
 
 @router.post(

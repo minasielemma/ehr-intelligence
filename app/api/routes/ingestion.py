@@ -19,6 +19,8 @@ from fastapi import (
     UploadFile,
     status,
 )
+import math
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_settings
@@ -28,6 +30,7 @@ from app.core.logging import get_logger
 from app.core.security import verify_api_key
 from app.ingestion.orchestrator import IngestionOrchestrator
 from app.models.database import get_db_session, get_session_factory
+from app.models.ingestion import IngestionJobModel
 from app.repositories.clinical_record_repository import ClinicalRecordRepository
 from app.repositories.ingestion_job_repository import IngestionJobRepository
 from app.schemas.canonical import JobStatus, MappingProfile, RecordStatus
@@ -36,6 +39,7 @@ from app.schemas.ingestion import (
     IngestionJobResponse,
     IngestionReportResponse,
     JSONIngestionRequest,
+    JobPaginationResponse,
     PackageFileResponse,
     RecordPaginationResponse,
 )
@@ -296,6 +300,54 @@ async def ingest_json_records(
     )
 
     return format_job_response(processed_job)
+
+
+@router.get(
+    "/jobs",
+    response_model=JobPaginationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List Ingestion Jobs",
+    description="Retrieves a paginated list of all ingestion jobs with optional status filtering.",
+)
+async def list_ingestion_jobs(
+    page: int = Query(default=1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
+    status_filter: Optional[str] = Query(default=None, alias="status", description="Filter by status (e.g. COMPLETED, FAILED)"),
+    source_system: Optional[str] = Query(default=None, description="Filter by source system"),
+    db: AsyncSession = Depends(get_db_session),
+) -> JobPaginationResponse:
+    """List paginated ingestion jobs ordered by created_at desc."""
+    conditions = []
+    if status_filter:
+        conditions.append(IngestionJobModel.status == status_filter.upper())
+    if source_system:
+        conditions.append(func.lower(IngestionJobModel.source_system) == source_system.lower())
+
+    count_stmt = select(func.count(IngestionJobModel.id))
+    if conditions:
+        count_stmt = count_stmt.where(*conditions)
+    total = (await db.execute(count_stmt)).scalar_one()
+
+    offset = (page - 1) * page_size
+    query_stmt = (
+        select(IngestionJobModel)
+        .order_by(desc(IngestionJobModel.created_at))
+        .offset(offset)
+        .limit(page_size)
+    )
+    if conditions:
+        query_stmt = query_stmt.where(*conditions)
+
+    jobs = list((await db.execute(query_stmt)).scalars().all())
+    total_pages = math.ceil(total / page_size) if total > 0 else 0
+
+    return JobPaginationResponse(
+        items=[format_job_response(j) for j in jobs],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 
 
 @router.get(

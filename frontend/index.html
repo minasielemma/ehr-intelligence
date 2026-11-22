@@ -1,27 +1,28 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EHR Intelligence Platform - Ingestion & Normalization</title>
+    <title>Onye EHR Intelligence Platform - Clinical Semantic Search & FHIR R4 Engine</title>
+    
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
-                        slate: {
-                            850: '#151f32',
-                            950: '#070b14',
+                        brand: {
+                            DEFAULT: '#389B98',
+                            teal: '#389B98',
+                            dark: '#287F7D',
+                            coral: '#DE3449',
                         },
                         clinical: {
-                            blue: '#2563eb',
-                            emerald: '#059669',
-                            amber: '#d97706',
-                            rose: '#e11d48',
-                            purple: '#7c3aed',
+                            charcoal: '#263238',
+                            muted: '#718096',
+                            border: '#E5EAEA',
+                            bg: '#F7F9FA',
                         }
                     }
                 }
@@ -30,39 +31,40 @@
     </script>
     <link rel="stylesheet" href="/assets/style.css">
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
+<body class="bg-[#F7F9FA] text-[#263238] min-h-screen flex flex-col font-sans antialiased">
 
     <!-- Top Navigation Header -->
-    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md bg-opacity-90">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                </div>
-                <div>
-                    <h1 class="text-lg font-bold text-slate-100 tracking-tight flex items-center gap-2">
-                        EHR Intelligence Platform
-                        <span class="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Ingestion Engine</span>
-                    </h1>
-                    <p class="text-xs text-slate-400">FHIR R4 Intermediate Representation & Clinical Data Normalization</p>
-                </div>
+    <header class="bg-white border-b border-[#E5EAEA] sticky top-0 z-40 shadow-sm backdrop-blur-md bg-opacity-95">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            
+            <!-- Brand & Product Title -->
+            <div class="flex items-center space-x-3.5">
+                <a href="#dashboard" onclick="switchMainTab('dashboard')" class="flex items-center space-x-3 group">
+                    <img src="/assets/logo.png" alt="onye" class="h-9 w-auto object-contain transition-transform group-hover:scale-105">
+                    <div class="border-l border-[#E5EAEA] pl-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20">
+                                EHR Intelligence
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-[#718096]">Clinical Semantic Search, AI Summarization & FHIR R4 Normalization</p>
+                    </div>
+                </a>
             </div>
 
-            <!-- System Health Indicators -->
+            <!-- Health & Status Indicators -->
             <div class="flex items-center space-x-3 text-xs">
-                <div class="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60">
+                <div class="flex items-center space-x-2 bg-[#F7F9FA] px-3 py-1.5 rounded-xl border border-[#E5EAEA]">
                     <span id="backend-indicator" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-                    <span class="text-slate-400">Backend API:</span>
-                    <span id="backend-status" class="font-medium text-slate-200">Connecting...</span>
+                    <span class="text-[#718096]">Backend API:</span>
+                    <span id="backend-status" class="font-semibold text-[#263238]">Connecting...</span>
                 </div>
-                <div class="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60">
-                    <span id="vector-indicator" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-                    <span class="text-slate-400">ChromaDB:</span>
-                    <span id="vector-status" class="font-medium text-slate-200">Checking...</span>
+                <div class="flex items-center space-x-2 bg-[#F7F9FA] px-3 py-1.5 rounded-xl border border-[#E5EAEA]">
+                    <span id="vector-indicator" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                    <span class="text-[#718096]">ChromaDB:</span>
+                    <span id="vector-status" class="font-semibold text-[#263238]">Checking...</span>
                 </div>
-                <a href="/api/v1/docs" target="_blank" class="hidden sm:inline-flex items-center space-x-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg transition-colors">
+                <a href="/api/v1/docs" target="_blank" class="hidden sm:inline-flex items-center space-x-1.5 bg-[#389B98]/10 hover:bg-[#389B98]/20 text-[#389B98] border border-[#389B98]/30 px-3 py-1.5 rounded-xl transition-colors font-medium">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
@@ -72,483 +74,115 @@
         </div>
     </header>
 
+    <!-- Main Navigation Bar -->
+    <div class="bg-white border-b border-[#E5EAEA] sticky top-[61px] z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav class="flex space-x-6 text-xs font-semibold overflow-x-auto py-2.5" aria-label="Tabs">
+                <button id="tab-btn-dashboard" onclick="switchMainTab('dashboard')" class="tab-button border-b-2 border-[#389B98] text-[#389B98] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    <span>Clinical Dashboard</span>
+                </button>
+                <button id="tab-btn-search" onclick="switchMainTab('search')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <span>Semantic Search</span>
+                </button>
+                <button id="tab-btn-patients" onclick="switchMainTab('patients')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span>Patient Directory</span>
+                </button>
+                <button id="tab-btn-ingest" onclick="switchMainTab('ingest')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span>Ingest EHR Data</span>
+                </button>
+                <button id="tab-btn-jobs" onclick="switchMainTab('jobs')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                    <span>Ingestion Batches</span>
+                </button>
+                <button id="tab-btn-explorer" onclick="switchMainTab('explorer')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <span>Canonical Records & Audit</span>
+                </button>
+                <button id="tab-btn-fhir" onclick="switchMainTab('fhir')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                    <span>FHIR R4 Bundles</span>
+                </button>
+            </nav>
+        </div>
+    </div>
+
     <!-- Main Content Container -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
 
-        <!-- Navigation Tabs -->
-        <nav class="flex border-b border-slate-800 space-x-6 text-sm font-medium" aria-label="Tabs">
-            <button id="tab-btn-ingest" onclick="switchMainTab('ingest')" class="tab-button border-b-2 border-blue-500 text-blue-400 pb-3 flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                <span>Ingest & Clean EHR Data</span>
-            </button>
-            <button id="tab-btn-jobs" onclick="switchMainTab('jobs')" class="tab-button border-b-2 border-transparent text-slate-400 hover:text-slate-200 pb-3 flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-                <span>Ingestion Jobs</span>
-            </button>
-            <button id="tab-btn-explorer" onclick="switchMainTab('explorer')" class="tab-button border-b-2 border-transparent text-slate-400 hover:text-slate-200 pb-3 flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                <span>Canonical Records & Audit Explorer</span>
-            </button>
-            <button id="tab-btn-fhir" onclick="switchMainTab('fhir')" class="tab-button border-b-2 border-transparent text-slate-400 hover:text-slate-200 pb-3 flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                </svg>
-                <span>FHIR R4 Bundles & Validation</span>
-            </button>
-            <button id="tab-btn-search" onclick="switchMainTab('search')" class="tab-button border-b-2 border-transparent text-slate-400 hover:text-slate-200 pb-3 flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <span>Clinical Semantic Search</span>
-            </button>
-        </nav>
-
         <!-- =================================================================== -->
-        <!-- TAB 1: INGEST EHR DATA -->
+        <!-- TAB 1: CLINICAL OVERVIEW DASHBOARD (PHASE 4) -->
         <!-- =================================================================== -->
-        <section id="tab-content-ingest" class="space-y-6">
-
-            <!-- Subtab toggle: File Upload vs Direct JSON -->
-            <div class="flex items-center justify-between">
-                <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800 text-xs font-medium">
-                    <button id="mode-file-btn" onclick="switchIngestMode('file')" class="px-4 py-1.5 rounded-md bg-blue-600 text-white shadow">
-                        File Upload (CSV, JSON, Plain-Text)
-                    </button>
-                    <button id="mode-json-btn" onclick="switchIngestMode('json')" class="px-4 py-1.5 rounded-md text-slate-400 hover:text-slate-200">
-                        Direct JSON Request Payload
-                    </button>
-                </div>
-
-                <div class="flex items-center space-x-2 text-xs text-slate-400">
-                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Max Upload: 50MB</span>
-                    <span class="text-slate-600">|</span>
-                    <span>Formats: .json, .csv, .txt</span>
-                </div>
-            </div>
-
-            <!-- Mode A: File Upload Form -->
-            <div id="ingest-file-panel" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-                <form id="file-upload-form" onsubmit="handleFileUpload(event)" class="space-y-6">
-                    
-                    <!-- Drag & Drop Upload Zone -->
-                    <div id="drop-zone" class="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-xl p-8 text-center cursor-pointer transition-colors bg-slate-950/40" onclick="document.getElementById('file-input').click()">
-                        <input type="file" id="file-input" class="hidden" accept=".json,.csv,.txt" onchange="handleFileSelected(this.files)">
-                        <div class="flex flex-col items-center justify-center space-y-3">
-                            <div class="p-3 bg-blue-500/10 rounded-full text-blue-400">
-                                <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                </svg>
-                            </div>
-                            <div class="space-y-1">
-                                <p class="text-sm font-medium text-slate-200">
-                                    <span class="text-blue-400 hover:underline">Click to browse</span> or drag and drop your clinical file
-                                </p>
-                                <p class="text-xs text-slate-400">Supports heterogeneous JSON EHR export, CSV lab/patient lists, or TXT clinical notes</p>
-                            </div>
-                            <div id="selected-file-display" class="hidden items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-xs font-mono text-emerald-400">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span id="selected-file-name">filename.csv</span>
-                                <span id="selected-file-size" class="text-slate-400">(0 KB)</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Metadata Configuration Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-300 mb-1">Source Hospital / System</label>
-                            <select id="file-source-system" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
-                                <option value="metro_health">Metro Health System</option>
-                                <option value="st_jude">St. Jude Medical</option>
-                                <option value="naval_medical">Naval Medical Center</option>
-                                <option value="outpatient_clinic">Outpatient Clinic</option>
-                                <option value="generic_ehr">Generic EHR Export</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-300 mb-1">Client Idempotency Key (Optional)</label>
-                            <input type="text" id="file-idempotency-key" placeholder="e.g. upload-batch-001" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 placeholder-slate-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-300 mb-1">Execution Mode</label>
-                            <select id="file-sync-mode" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
-                                <option value="true">Synchronous (Wait for Completion - 201 Created)</option>
-                                <option value="false">Asynchronous Background Task (HTTP 202 Accepted)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Submit & Sample Download Bar -->
-                    <div class="flex items-center justify-between pt-2 border-t border-slate-800">
-                        <div class="flex items-center space-x-2">
-                            <button type="button" onclick="loadSampleFile('csv')" class="text-xs text-slate-400 hover:text-blue-400 transition-colors">Load Sample CSV</button>
-                            <span class="text-slate-600">|</span>
-                            <button type="button" onclick="loadSampleFile('json')" class="text-xs text-slate-400 hover:text-blue-400 transition-colors">Load Sample JSON</button>
-                            <span class="text-slate-600">|</span>
-                            <button type="button" onclick="loadSampleFile('txt')" class="text-xs text-slate-400 hover:text-blue-400 transition-colors">Load Sample TXT</button>
-                        </div>
-
-                        <button type="submit" id="file-submit-btn" class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm px-6 py-2.5 rounded-xl shadow-lg shadow-blue-600/30 transition-all focus:ring-2 focus:ring-blue-400 focus:outline-none disabled:opacity-50">
-                            <span id="file-btn-text">Process Ingestion File</span>
-                            <svg id="file-btn-spinner" class="hidden animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Mode B: Direct JSON Input Form -->
-            <div id="ingest-json-panel" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 class="text-sm font-semibold text-slate-200">Direct JSON Record Ingestion</h3>
-                        <p class="text-xs text-slate-400">Paste heterogeneous patient records with messy formats, ambiguous dates, or clinical notes.</p>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <button type="button" onclick="fillSampleJSON('messy')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors">
-                            Sample: Messy Demographics
-                        </button>
-                        <button type="button" onclick="fillSampleJSON('conflict')" class="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-colors">
-                            Sample: Identity Conflict
-                        </button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Source Hospital System</label>
-                        <input type="text" id="json-source-system" value="metro_health" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Idempotency Key</label>
-                        <input type="text" id="json-idempotency-key" placeholder="Optional idempotency key" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">EHR Records Payload (JSON Array)</label>
-                    <textarea id="json-records-input" rows="12" class="w-full bg-slate-950 font-mono text-xs text-slate-200 border border-slate-800 rounded-xl p-4 focus:outline-none focus:border-blue-500 placeholder-slate-600" placeholder='[{"mrn": "00099812", "first_name": "Clara", "last_name": "Barton", "dob": "1978-12-25", "gender": "F", "clinical_text": "BP: 120/80 mmHg"}]'></textarea>
-                </div>
-
-                <div class="flex items-center justify-end pt-2 border-t border-slate-800">
-                    <button type="button" onclick="submitJSONPayload()" id="json-submit-btn" class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm px-6 py-2.5 rounded-xl shadow-lg shadow-blue-600/30 transition-all focus:ring-2 focus:ring-blue-400 focus:outline-none">
-                        <span>Ingest JSON Payload</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Ingestion Result Banner / Alert -->
-            <div id="ingestion-result-box" class="hidden rounded-xl p-4 border transition-all"></div>
+        <section id="tab-content-dashboard" class="space-y-6">
+            <!-- Dynamic Dashboard Content injected via loadDashboardOverview() -->
         </section>
 
         <!-- =================================================================== -->
-        <!-- TAB 2: INGESTION JOBS DASHBOARD -->
-        <!-- =================================================================== -->
-        <section id="tab-content-jobs" class="hidden space-y-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-base font-bold text-slate-100">Ingestion Job Status & Lifecycle</h2>
-                    <p class="text-xs text-slate-400">Inspect operational batch jobs, metrics, and execution history.</p>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <input type="text" id="lookup-job-id" placeholder="Enter Job UUID..." class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
-                    <button onclick="lookupJobById()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3 py-1.5 rounded-lg transition-colors">
-                        Lookup Job
-                    </button>
-                </div>
-            </div>
-
-            <!-- Active / Last Job Card -->
-            <div id="job-details-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-                    <div>
-                        <span class="text-xs text-slate-400 font-mono uppercase tracking-wider">Active Job</span>
-                        <div class="flex items-center space-x-3 mt-1">
-                            <span id="card-job-id" class="text-base font-mono font-bold text-blue-400">No Job Loaded</span>
-                            <span id="card-job-status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">None</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-4 text-xs font-mono text-slate-400">
-                        <div>Format: <span id="card-job-format" class="text-slate-200">-</span></div>
-                        <div>System: <span id="card-job-system" class="text-slate-200">-</span></div>
-                        <div>Duration: <span id="card-job-duration" class="text-slate-200">-</span></div>
-                    </div>
-                </div>
-
-                <!-- Metrics Counter Grid -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 text-center">
-                        <span class="text-xs text-slate-400">Total Records</span>
-                        <div id="metric-total" class="text-xl font-bold text-slate-100 mt-1">0</div>
-                    </div>
-                    <div class="bg-emerald-950/20 p-3.5 rounded-xl border border-emerald-500/20 text-center">
-                        <span class="text-xs text-emerald-400">Normalized</span>
-                        <div id="metric-success" class="text-xl font-bold text-emerald-300 mt-1">0</div>
-                    </div>
-                    <div class="bg-purple-950/20 p-3.5 rounded-xl border border-purple-500/20 text-center">
-                        <span class="text-xs text-purple-400">Duplicates</span>
-                        <div id="metric-duplicates" class="text-xl font-bold text-purple-300 mt-1">0</div>
-                    </div>
-                    <div class="bg-amber-950/20 p-3.5 rounded-xl border border-amber-500/20 text-center">
-                        <span class="text-xs text-amber-400">Conflicts</span>
-                        <div id="metric-conflicts" class="text-xl font-bold text-amber-300 mt-1">0</div>
-                    </div>
-                    <div class="bg-yellow-950/20 p-3.5 rounded-xl border border-yellow-500/20 text-center">
-                        <span class="text-xs text-yellow-400">Warnings</span>
-                        <div id="metric-warnings" class="text-xl font-bold text-yellow-300 mt-1">0</div>
-                    </div>
-                    <div class="bg-rose-950/20 p-3.5 rounded-xl border border-rose-500/20 text-center">
-                        <span class="text-xs text-rose-400">Rejected</span>
-                        <div id="metric-rejected" class="text-xl font-bold text-rose-300 mt-1">0</div>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-end space-x-3 pt-2">
-                    <button onclick="viewJobAuditReport()" class="inline-flex items-center space-x-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 px-4 py-2 rounded-lg transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span>View Audit & Reconciliation Report</span>
-                    </button>
-                    <button onclick="viewJobRecordsList()" class="inline-flex items-center space-x-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg transition-colors shadow">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                        </svg>
-                        <span>Inspect Processed Records</span>
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- =================================================================== -->
-        <!-- TAB 3: CANONICAL RECORDS & AUDIT EXPLORER -->
-        <!-- =================================================================== -->
-        <section id="tab-content-explorer" class="hidden space-y-6">
-            
-            <!-- Filter & Status Bar -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                <div class="flex items-center space-x-3">
-                    <label class="text-xs font-medium text-slate-400">Filter Status:</label>
-                    <select id="explorer-status-filter" onchange="loadRecordsPage(1)" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
-                        <option value="">All Records</option>
-                        <option value="NORMALIZED">NORMALIZED (Cleaned)</option>
-                        <option value="MANUAL_REVIEW_REQUIRED">MANUAL_REVIEW_REQUIRED (Conflict)</option>
-                        <option value="DUPLICATE">DUPLICATE</option>
-                        <option value="REJECTED">REJECTED</option>
-                    </select>
-                </div>
-                <div class="flex items-center space-x-2 text-xs text-slate-400">
-                    <span id="records-pagination-info">Showing records 0-0 of 0</span>
-                    <button id="prev-page-btn" onclick="changeRecordPage(-1)" class="p-1.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30" disabled>
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <button id="next-page-btn" onclick="changeRecordPage(1)" class="p-1.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30" disabled>
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Clinical Records Table -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs text-slate-300">
-                        <thead class="bg-slate-950/80 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
-                            <tr>
-                                <th class="px-4 py-3.5">Record ID</th>
-                                <th class="px-4 py-3.5">Patient ID</th>
-                                <th class="px-4 py-3.5">Status</th>
-                                <th class="px-4 py-3.5">Record Date</th>
-                                <th class="px-4 py-3.5">Cleaned Text / Notes Preview</th>
-                                <th class="px-4 py-3.5 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="records-table-body" class="divide-y divide-slate-800/80">
-                            <tr>
-                                <td colspan="6" class="px-4 py-8 text-center text-slate-500 font-mono">
-                                    No records loaded. Ingest an EHR file or look up a job to inspect output.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Audit Trail Section -->
-            <div id="audit-trail-container" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <div>
-                        <h3 class="text-sm font-semibold text-slate-200">Per-Record Ingestion Audit Trail</h3>
-                        <p class="text-xs text-slate-400">Append-only audit trail logging per-field demographic transformations, dosage checks, and reconciliation rules.</p>
-                    </div>
-                    <span id="audit-count-badge" class="px-2 py-0.5 rounded text-xs font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">0 Audits</span>
-                </div>
-
-                <div class="overflow-x-auto max-h-96">
-                    <table class="w-full text-left text-xs text-slate-300">
-                        <thead class="bg-slate-950 text-slate-400 uppercase tracking-wider font-semibold sticky top-0">
-                            <tr>
-                                <th class="px-3 py-2.5">Field</th>
-                                <th class="px-3 py-2.5">Original Value</th>
-                                <th class="px-3 py-2.5">Normalized Value</th>
-                                <th class="px-3 py-2.5">Transformation</th>
-                                <th class="px-3 py-2.5">Component</th>
-                                <th class="px-3 py-2.5">Reason</th>
-                            </tr>
-                        </thead>
-                        <tbody id="audit-table-body" class="divide-y divide-slate-800/60 font-mono text-[11px]">
-                            <tr>
-                                <td colspan="6" class="px-3 py-6 text-center text-slate-500">
-                                    Awaiting audit report generation...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-        </section>
-
-        <!-- =================================================================== -->
-        <!-- TAB 4: FHIR R4 BUNDLES & VALIDATION -->
-        <!-- =================================================================== -->
-        <section id="tab-content-fhir" class="hidden space-y-6">
-
-            <!-- Normalization Action Bar -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <div>
-                        <h3 class="text-sm font-semibold text-slate-200">On-Demand FHIR R4 Normalization Engine</h3>
-                        <p class="text-xs text-slate-400">Transform reconciled patient records into connected HL7 FHIR R4 Bundles with strict gatekeeper validation.</p>
-                    </div>
-                    <button onclick="loadStoredFhirBundles()" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center space-x-1.5 transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        <span>Refresh Bundles</span>
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
-                    <div class="md:col-span-2">
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Target Patient ID or Ingestion Job UUID</label>
-                        <input type="text" id="fhir-target-id-input" placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Bundle Type</label>
-                        <select id="fhir-bundle-type-select" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500 font-sans">
-                            <option value="collection" selected>collection (Persistence)</option>
-                            <option value="transaction">transaction (REST PUT)</option>
-                        </select>
-                    </div>
-                    <div class="flex items-end space-x-2">
-                        <button onclick="triggerPatientFhirNormalization()" class="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center space-x-1.5">
-                            <span>Normalize Patient</span>
-                        </button>
-                        <button onclick="triggerJobFhirNormalization()" class="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center space-x-1.5">
-                            <span>Normalize Job</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div id="fhir-action-status" class="hidden text-xs px-3.5 py-2 rounded-xl border"></div>
-            </div>
-
-            <!-- Stored Bundles Table -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <div>
-                        <h3 class="text-sm font-semibold text-slate-200">Persisted FHIR R4 Bundles</h3>
-                        <p class="text-xs text-slate-400">Conforming, validated patient bundles stored in structured SQLite and atomic file storage.</p>
-                    </div>
-                    <span id="fhir-bundle-count-badge" class="px-2 py-0.5 rounded text-xs font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">0 Bundles</span>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs text-slate-300">
-                        <thead class="bg-slate-950 text-slate-400 uppercase tracking-wider font-semibold sticky top-0">
-                            <tr>
-                                <th class="px-3.5 py-2.5">Bundle ID</th>
-                                <th class="px-3.5 py-2.5">Patient MRN</th>
-                                <th class="px-3.5 py-2.5">Type</th>
-                                <th class="px-3.5 py-2.5">Version</th>
-                                <th class="px-3.5 py-2.5">Status</th>
-                                <th class="px-3.5 py-2.5">Entries</th>
-                                <th class="px-3.5 py-2.5">Created At</th>
-                                <th class="px-3.5 py-2.5 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="fhir-bundles-table-body" class="divide-y divide-slate-800/60 font-mono text-[11px]">
-                            <tr>
-                                <td colspan="8" class="px-3.5 py-8 text-center text-slate-500 font-sans">
-                                    Loading stored FHIR Bundles...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-        <!-- =================================================================== -->
-        <!-- TAB 5: CLINICAL SEMANTIC SEARCH & VECTOR RETRIEVAL -->
+        <!-- TAB 2: CLINICAL SEMANTIC SEARCH & AI SUMMARIES (PHASE 5) -->
         <!-- =================================================================== -->
         <section id="tab-content-search" class="hidden space-y-6">
-            <!-- Header banner -->
-            <div class="bg-gradient-to-r from-blue-900/30 via-slate-900 to-indigo-900/30 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div class="space-y-1">
-                    <div class="flex items-center space-x-2">
-                        <span class="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </span>
-                        <h2 class="text-base font-bold text-slate-100 tracking-tight">Clinical Semantic Search & Vector Retrieval</h2>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">ChromaDB HNSW</span>
+            
+            <!-- Search Hero Card -->
+            <div class="bg-white rounded-2xl border border-[#E5EAEA] p-6 shadow-sm space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div class="space-y-0.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="p-1.5 rounded-lg bg-[#389B98]/10 text-[#389B98]">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </span>
+                            <h2 class="text-base font-bold text-[#263238] tracking-tight">Clinical Semantic Search & AI Summaries</h2>
+                        </div>
+                        <p class="text-xs text-[#718096]">
+                            Query across longitudinal FHIR resources, lab records, notes, and AI clinical summaries in natural clinical language.
+                        </p>
                     </div>
-                    <p class="text-xs text-slate-400">
-                        Query across all normalized FHIR clinical resources and AI summaries using natural language powered by Sentence Transformers.
-                    </p>
-                </div>
-                <div class="flex items-center space-x-3 text-xs">
-                    <button onclick="triggerBackfillReindex()" id="reindex-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition-colors flex items-center space-x-1.5">
-                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        <span>Re-index Vector Store</span>
-                    </button>
-                </div>
-            </div>
 
-            <!-- Search Query Box & Quick Prompts -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-                <form id="semantic-search-form" onsubmit="executeSemanticSearch(event)" class="space-y-4">
+                    <div class="flex items-center space-x-2 text-xs">
+                        <span class="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20">
+                            ChromaDB Dense HNSW
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Search Input Form -->
+                <form id="semantic-search-form" class="space-y-4">
                     <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                            <svg class="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#718096]">
+                            <svg class="w-5 h-5 text-[#389B98]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
                         <input
                             type="text"
                             id="search-query-input"
-                            required
-                            placeholder="Enter clinical query (e.g. 'patient with elevated blood glucose and poorly controlled diabetes', 'stage 2 hypertension')..."
-                            class="w-full bg-slate-950 border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl pl-12 pr-32 py-3.5 text-sm text-slate-100 placeholder-slate-500 transition-colors font-sans"
+                            autocomplete="off"
+                            placeholder="Search symptoms, diagnoses, elevated labs, medications (e.g. 'uncontrolled diabetes with high HbA1c')... Press '/' to focus"
+                            class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-2xl pl-12 pr-28 py-3.5 text-sm text-[#263238] placeholder-slate-400 focus:outline-none focus:border-[#389B98] focus:bg-white shadow-inner font-sans transition-all"
                         />
-                        <div class="absolute inset-y-0 right-2 flex items-center space-x-1">
+                        <div class="absolute inset-y-0 right-2 flex items-center space-x-1.5">
                             <button
                                 type="button"
                                 onclick="clearSearchInput()"
-                                class="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800 transition-colors"
+                                class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
                                 title="Clear query"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -558,7 +192,7 @@
                             <button
                                 type="submit"
                                 id="search-submit-btn"
-                                class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-md transition-colors flex items-center space-x-1.5"
+                                class="px-5 py-2.5 bg-[#389B98] hover:bg-[#287F7D] text-white text-xs font-semibold rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
                             >
                                 <span>Search</span>
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -570,75 +204,75 @@
 
                     <!-- Quick Sample Query Chips -->
                     <div class="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                        <span class="text-slate-500 text-[11px] font-medium uppercase tracking-wider">Quick Prompts:</span>
-                        <button type="button" onclick="applySampleSearch('patient with uncontrolled diabetes and high blood sugar')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-blue-600/20 hover:text-blue-300 text-slate-400 border border-slate-700/60 transition-colors text-[11px]">
+                        <span class="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">Quick Suggestions:</span>
+                        <button type="button" onclick="applySampleSearch('patient with uncontrolled diabetes and high blood sugar')" class="px-2.5 py-1 rounded-xl bg-[#F7F9FA] hover:bg-[#389B98]/10 hover:text-[#389B98] text-slate-600 border border-[#E5EAEA] transition-colors text-[11px]">
                             High Blood Sugar & Diabetes
                         </button>
-                        <button type="button" onclick="applySampleSearch('hypertension with elevated blood pressure reading')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-blue-600/20 hover:text-blue-300 text-slate-400 border border-slate-700/60 transition-colors text-[11px]">
+                        <button type="button" onclick="applySampleSearch('hypertension with elevated blood pressure reading')" class="px-2.5 py-1 rounded-xl bg-[#F7F9FA] hover:bg-[#389B98]/10 hover:text-[#389B98] text-slate-600 border border-[#E5EAEA] transition-colors text-[11px]">
                             Hypertension & Elevated BP
                         </button>
-                        <button type="button" onclick="applySampleSearch('bronchial asthma acute bronchospasm and shortness of breath')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-blue-600/20 hover:text-blue-300 text-slate-400 border border-slate-700/60 transition-colors text-[11px]">
-                            Asthma & Bronchospasm
+                        <button type="button" onclick="applySampleSearch('bronchial asthma acute bronchospasm and shortness of breath')" class="px-2.5 py-1 rounded-xl bg-[#F7F9FA] hover:bg-[#389B98]/10 hover:text-[#389B98] text-slate-600 border border-[#E5EAEA] transition-colors text-[11px]">
+                            Asthma & Shortness of Breath
                         </button>
-                        <button type="button" onclick="applySampleSearch('lipid panel total cholesterol hyperlipidemia')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-blue-600/20 hover:text-blue-300 text-slate-400 border border-slate-700/60 transition-colors text-[11px]">
-                            Lipids & Hyperlipidemia
+                        <button type="button" onclick="applySampleSearch('lipid panel total cholesterol hyperlipidemia')" class="px-2.5 py-1 rounded-xl bg-[#F7F9FA] hover:bg-[#389B98]/10 hover:text-[#389B98] text-slate-600 border border-[#E5EAEA] transition-colors text-[11px]">
+                            Lipid Panel & Cholesterol
                         </button>
-                        <button type="button" onclick="applySampleSearch('chronic kidney disease elevated creatinine')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-blue-600/20 hover:text-blue-300 text-slate-400 border border-slate-700/60 transition-colors text-[11px]">
+                        <button type="button" onclick="applySampleSearch('chronic kidney disease elevated creatinine')" class="px-2.5 py-1 rounded-xl bg-[#F7F9FA] hover:bg-[#389B98]/10 hover:text-[#389B98] text-slate-600 border border-[#E5EAEA] transition-colors text-[11px]">
                             Kidney Disease & Creatinine
                         </button>
                     </div>
 
-                    <!-- Filter Controls (Collapsible Grid) -->
-                    <div class="pt-3 border-t border-slate-800/80">
+                    <!-- Collapsible Filter Controls -->
+                    <div class="pt-4 border-t border-slate-100">
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                             <!-- Resource Type Filter -->
                             <div>
-                                <label for="search-filter-resource" class="block font-medium text-slate-400 mb-1">FHIR Resource Type</label>
-                                <select id="search-filter-resource" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:border-blue-500 text-xs">
+                                <label for="search-filter-resource" class="block font-semibold text-slate-600 mb-1">FHIR Resource Type</label>
+                                <select id="search-filter-resource" onchange="executeClinicalSearch()" class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-[#263238] focus:border-[#389B98] text-xs">
                                     <option value="">All Resource Types</option>
-                                    <option value="Observation">Observation</option>
-                                    <option value="Condition">Condition</option>
+                                    <option value="Observation">Observation (Labs & Vitals)</option>
+                                    <option value="Condition">Condition (Diagnoses)</option>
                                     <option value="DiagnosticReport">DiagnosticReport</option>
-                                    <option value="DocumentReference">DocumentReference</option>
-                                    <option value="ClinicalSummary">ClinicalSummary (AI Summary)</option>
+                                    <option value="DocumentReference">DocumentReference (Notes)</option>
+                                    <option value="ClinicalSummary">ClinicalSummary (AI Synthesized)</option>
                                 </select>
                             </div>
 
                             <!-- Patient ID Filter -->
                             <div>
-                                <label for="search-filter-patient" class="block font-medium text-slate-400 mb-1">Patient Identifier</label>
+                                <label for="search-filter-patient" class="block font-semibold text-slate-600 mb-1">Patient Identifier Filter</label>
                                 <input
                                     type="text"
                                     id="search-filter-patient"
                                     placeholder="e.g. pat-001 or All"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 placeholder-slate-500 focus:border-blue-500 text-xs"
+                                    class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-[#263238] placeholder-slate-400 focus:border-[#389B98] text-xs font-mono"
                                 />
                             </div>
 
                             <!-- Date Range Filters -->
                             <div>
-                                <label for="search-filter-date-from" class="block font-medium text-slate-400 mb-1">Date From (Inclusive)</label>
+                                <label for="search-filter-date-from" class="block font-semibold text-slate-600 mb-1">Date From (Inclusive)</label>
                                 <input
                                     type="date"
                                     id="search-filter-date-from"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:border-blue-500 text-xs"
+                                    class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-[#263238] focus:border-[#389B98] text-xs"
                                 />
                             </div>
                             <div>
-                                <label for="search-filter-date-to" class="block font-medium text-slate-400 mb-1">Date To (Inclusive)</label>
+                                <label for="search-filter-date-to" class="block font-semibold text-slate-600 mb-1">Date To (Inclusive)</label>
                                 <input
                                     type="date"
                                     id="search-filter-date-to"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:border-blue-500 text-xs"
+                                    class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-[#263238] focus:border-[#389B98] text-xs"
                                 />
                             </div>
                         </div>
 
                         <!-- Secondary Filters row -->
-                        <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
+                        <div class="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-50">
                             <div class="flex items-center space-x-2">
-                                <label for="search-filter-top-k" class="font-medium text-slate-400">Results Limit:</label>
-                                <select id="search-filter-top-k" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 text-xs">
+                                <label for="search-filter-top-k" class="font-semibold text-slate-600">Results Limit:</label>
+                                <select id="search-filter-top-k" onchange="executeClinicalSearch()" class="bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-2.5 py-1 text-[#263238] text-xs font-semibold">
                                     <option value="5" selected>Top 5 Matches</option>
                                     <option value="10">Top 10 Matches</option>
                                     <option value="25">Top 25 Matches</option>
@@ -647,176 +281,781 @@
                             <button
                                 type="button"
                                 onclick="resetSearchFilters()"
-                                class="text-xs text-slate-400 hover:text-slate-200 flex items-center space-x-1"
+                                class="text-xs text-slate-500 hover:text-[#DE3449] flex items-center space-x-1 font-medium transition-colors"
                             >
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
-                                <span>Reset Filters</span>
+                                <span>Clear Filters</span>
                             </button>
                         </div>
                     </div>
                 </form>
             </div>
 
-            <!-- Search Status & Metrics Bar -->
-            <div id="search-metrics-bar" class="hidden items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-5 py-3 text-xs">
+            <!-- Search Metrics & Active Filter Tags Bar -->
+            <div id="search-metrics-bar" class="hidden flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-2 text-xs">
                 <div class="flex items-center space-x-3">
-                    <span id="search-results-count" class="font-semibold text-slate-200">0 matches found</span>
-                    <span class="text-slate-600">|</span>
-                    <span id="search-results-latency" class="text-slate-400 font-mono">0.0 ms</span>
+                    <span id="search-results-count" class="font-bold text-slate-800">0 records retrieved</span>
+                    <span class="text-slate-300">•</span>
+                    <span id="search-results-latency" class="text-slate-500 font-mono text-[11px]">Retrieved in 0.0 ms</span>
                 </div>
-                <div id="search-active-filter-tags" class="flex items-center space-x-2"></div>
+                <div id="search-active-filter-tags" class="flex flex-wrap items-center gap-1.5"></div>
             </div>
 
-            <!-- Loading Skeleton -->
-            <div id="search-loading-skeleton" class="hidden space-y-3">
-                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 animate-pulse">
-                    <div class="h-4 bg-slate-800 rounded w-1/4"></div>
-                    <div class="h-3 bg-slate-800/60 rounded w-3/4"></div>
-                    <div class="h-3 bg-slate-800/40 rounded w-1/2"></div>
+            <!-- Search Results Container -->
+            <div id="search-results-container" class="space-y-4">
+                <div class="bg-white border border-[#E5EAEA] rounded-2xl p-10 text-center space-y-2 shadow-sm">
+                    <div class="w-10 h-10 rounded-full bg-[#389B98]/10 text-[#389B98] flex items-center justify-center mx-auto">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <div class="text-xs font-semibold text-slate-700">Enter a clinical query above to search patients, FHIR observations, and AI summaries.</div>
+                    <p class="text-[11px] text-slate-400">Dense embeddings generated using Sentence Transformers with cosine ranking.</p>
                 </div>
-                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 animate-pulse">
-                    <div class="h-4 bg-slate-800 rounded w-1/3"></div>
-                    <div class="h-3 bg-slate-800/60 rounded w-5/6"></div>
-                    <div class="h-3 bg-slate-800/40 rounded w-2/3"></div>
+            </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 3: PATIENT DIRECTORY -->
+        <!-- =================================================================== -->
+        <section id="tab-content-patients" class="hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-[#E5EAEA] p-6 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                    <div class="space-y-0.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="p-1.5 rounded-lg bg-[#389B98]/10 text-[#389B98]">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                            </span>
+                            <h2 class="text-base font-bold text-[#263238] tracking-tight">Canonical Patient Directory</h2>
+                        </div>
+                        <p class="text-xs text-[#718096]">Browse reconciled patient demographics, access longitudinal records, AI summaries, and FHIR resources.</p>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="loadPatientsDirectory(1)" class="px-3 py-1.5 bg-[#F7F9FA] hover:bg-slate-100 text-slate-700 border border-[#E5EAEA] rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span>Refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter & Search Toolbar -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <form onsubmit="handlePatientSearch(event)" class="sm:col-span-2 relative">
+                        <input
+                            type="text"
+                            id="patients-search-input"
+                            placeholder="Search by patient name, MRN, or internal ID..."
+                            class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl pl-10 pr-24 py-2 text-xs text-[#263238] focus:bg-white focus:border-[#389B98] focus:outline-none"
+                        />
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <button type="submit" class="absolute inset-y-1 right-1 px-3 bg-[#389B98] hover:bg-[#287F7D] text-white rounded-lg text-xs font-semibold transition-colors">
+                            Search
+                        </button>
+                    </form>
+
+                    <div class="flex items-center space-x-2">
+                        <select id="patients-status-filter" onchange="handlePatientFilterChange()" class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-xs text-[#263238] focus:border-[#389B98]">
+                            <option value="">All Reconciliation States</option>
+                            <option value="NEW_PATIENT">NEW_PATIENT</option>
+                            <option value="EXACT_MATCH">EXACT_MATCH</option>
+                            <option value="DEMOGRAPHIC_MATCH">DEMOGRAPHIC_MATCH</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Patients Table -->
+                <div class="overflow-x-auto border border-[#E5EAEA] rounded-xl">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px]">
+                            <tr>
+                                <th class="px-4 py-3">Patient Name</th>
+                                <th class="px-4 py-3">MRN</th>
+                                <th class="px-4 py-3">Gender</th>
+                                <th class="px-4 py-3">Date of Birth</th>
+                                <th class="px-4 py-3">Source System</th>
+                                <th class="px-4 py-3 text-center">Status</th>
+                                <th class="px-4 py-3 text-center">AI Summary</th>
+                                <th class="px-4 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patients-table-body" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="8" class="p-8 text-center text-slate-400">Loading patients...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Bar -->
+                <div class="flex items-center justify-between pt-2 text-xs text-slate-500">
+                    <span id="patients-pagination-info">Showing 0 of 0 patients</span>
+                    <div class="flex items-center space-x-1.5">
+                        <button id="patients-prev-page-btn" onclick="changePatientPage(-1)" class="p-2 rounded-lg bg-[#F7F9FA] border border-[#E5EAEA] hover:bg-slate-100 disabled:opacity-30 transition-colors" disabled>
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <button id="patients-next-page-btn" onclick="changePatientPage(1)" class="p-2 rounded-lg bg-[#F7F9FA] border border-[#E5EAEA] hover:bg-slate-100 disabled:opacity-30 transition-colors" disabled>
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 4: INGEST & CLEAN EHR DATA -->
+        <!-- =================================================================== -->
+        <section id="tab-content-ingest" class="hidden space-y-6">
+            <!-- Mode Toggle Bar -->
+            <div class="flex items-center justify-between">
+                <div class="inline-flex rounded-2xl bg-white p-1 border border-[#E5EAEA] text-xs font-semibold shadow-sm">
+                    <button id="mode-file-btn" onclick="switchIngestMode('file')" class="px-4 py-2 rounded-xl bg-[#389B98] text-white shadow-sm font-semibold transition-all">
+                        File / Package Upload (CSV, JSON, ZIP, TAR)
+                    </button>
+                    <button id="mode-json-btn" onclick="switchIngestMode('json')" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 font-medium transition-all">
+                        Direct JSON Request Payload
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-2 text-xs text-slate-500">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Max Upload: 100MB</span>
+                    <span class="text-slate-300">|</span>
+                    <span>Archive Decompression Safe</span>
                 </div>
             </div>
 
-            <!-- Empty Search State -->
-            <div id="search-empty-state" class="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center space-y-3 shadow-xl">
-                <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 mx-auto flex items-center justify-center">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                </div>
-                <h3 class="text-sm font-semibold text-slate-200">Ready for Clinical Semantic Search</h3>
-                <p class="text-xs text-slate-400 max-w-md mx-auto">
-                    Type a medical query above or click one of the quick prompts to retrieve ranked clinical records and AI summaries by conceptual similarity.
-                </p>
+            <!-- Panel A: File Upload -->
+            <div id="ingest-file-panel" class="bg-white rounded-2xl border border-[#E5EAEA] p-6 shadow-sm space-y-6">
+                <form id="file-upload-form" onsubmit="handleFileUpload(event)" class="space-y-6">
+                    
+                    <!-- Drag & Drop Upload Zone -->
+                    <div id="drop-zone" class="border-2 border-dashed border-[#E5EAEA] hover:border-[#389B98] rounded-2xl p-8 text-center cursor-pointer transition-colors bg-[#F7F9FA]" onclick="document.getElementById('file-input').click()">
+                        <input type="file" id="file-input" class="hidden" accept=".json,.csv,.txt,.zip,.tar.gz,.tgz,.ndjson">
+                        <div class="flex flex-col items-center justify-center space-y-3">
+                            <div class="p-3 bg-[#389B98]/10 rounded-2xl text-[#389B98]">
+                                <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-sm font-semibold text-slate-800">
+                                    <span class="text-[#389B98] hover:underline">Click to browse</span> or drag & drop your EHR file or ZIP package
+                                </p>
+                                <p class="text-xs text-slate-400">Supports heterogeneous JSON EHR export, CSV lab/patient lists, TXT notes, or multi-domain archives</p>
+                            </div>
+                            <div id="selected-file-display" class="hidden items-center space-x-2 bg-emerald-50 px-3.5 py-1.5 rounded-xl border border-emerald-200 text-xs font-mono text-emerald-700">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span id="selected-file-name">filename.csv</span>
+                                <span id="selected-file-size" class="text-emerald-600">(0 KB)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configuration Options -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Source Hospital / EHR System</label>
+                            <select id="file-source-system" class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-slate-800 focus:border-[#389B98]">
+                                <option value="metro_health">Metro Health System</option>
+                                <option value="st_jude">St. Jude Medical</option>
+                                <option value="naval_medical">Naval Medical Center</option>
+                                <option value="outpatient_clinic">Outpatient Clinic</option>
+                                <option value="generic_ehr">Generic EHR Export</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Idempotency Key (Optional)</label>
+                            <input type="text" id="file-idempotency-key" placeholder="Auto-generated if empty" class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-slate-800 focus:border-[#389B98] font-mono">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Execution Mode</label>
+                            <div class="flex items-center space-x-3 pt-2">
+                                <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" id="file-sync-toggle" class="rounded text-[#389B98] focus:ring-[#389B98]" checked>
+                                    <span class="text-slate-700 font-medium">Synchronous (Wait for output)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Optional Mapping Profile -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Custom Mapping Profile JSON (Optional)</label>
+                        <textarea id="file-mapping-profile" rows="2" placeholder='{"field_mappings": {"dob": "date_of_birth"}}' class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl p-3 text-xs font-mono text-slate-800 focus:border-[#389B98]"></textarea>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" id="file-upload-submit-btn" class="px-6 py-2.5 bg-[#389B98] hover:bg-[#287F7D] text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center space-x-2">
+                            <span>Ingest & Clean File</span>
+                        </button>
+                    </div>
+                </form>
             </div>
 
-            <!-- Search Results Feed -->
-            <div id="search-results-container" class="space-y-4"></div>
+            <!-- Panel B: Direct JSON Payload -->
+            <div id="ingest-json-panel" class="hidden bg-white rounded-2xl border border-[#E5EAEA] p-6 shadow-sm space-y-6">
+                <form id="json-upload-form" onsubmit="handleJsonIngestion(event)" class="space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Raw Clinical JSON Records</span>
+                        <div class="flex items-center space-x-2 text-xs">
+                            <span class="text-slate-400">Fill Sample:</span>
+                            <button type="button" onclick="fillSampleJSON('single')" class="px-2.5 py-1 bg-[#F7F9FA] border border-[#E5EAEA] rounded-lg text-[#389B98] hover:bg-slate-100 font-medium">Single Vitals</button>
+                            <button type="button" onclick="fillSampleJSON('multi')" class="px-2.5 py-1 bg-[#F7F9FA] border border-[#E5EAEA] rounded-lg text-[#389B98] hover:bg-slate-100 font-medium">Multi-Condition</button>
+                        </div>
+                    </div>
+
+                    <textarea id="json-payload-editor" rows="12" class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-2xl p-4 font-mono text-xs text-slate-800 focus:border-[#389B98] focus:bg-white leading-relaxed" placeholder="[ { 'patient_id': 'P-001', 'mrn': 'MRN-001', 'clinical_text': 'Patient examination note...' } ]"></textarea>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Source Hospital</label>
+                            <select id="json-source-system" class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-slate-800">
+                                <option value="metro_health">Metro Health System</option>
+                                <option value="st_jude">St. Jude Medical</option>
+                                <option value="naval_medical">Naval Medical Center</option>
+                                <option value="outpatient_clinic">Outpatient Clinic</option>
+                                <option value="generic_ehr">Generic EHR Export</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Idempotency Key (Optional)</label>
+                            <input type="text" id="json-idempotency-key" placeholder="Auto-generated if empty" class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-slate-800 font-mono">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Execution Mode</label>
+                            <div class="pt-2">
+                                <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" id="json-sync-toggle" class="rounded text-[#389B98] focus:ring-[#389B98]" checked>
+                                    <span class="text-slate-700 font-medium">Synchronous</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <textarea id="json-mapping-profile" rows="2" placeholder='Optional Custom Mapping Profile JSON' class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl p-3 text-xs font-mono text-slate-800 focus:border-[#389B98]"></textarea>
+
+                    <div class="flex justify-end">
+                        <button type="submit" id="json-submit-btn" class="px-6 py-2.5 bg-[#389B98] hover:bg-[#287F7D] text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center space-x-2">
+                            <span>Submit JSON Records</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 5: INGESTION JOBS & LIFECYCLE -->
+        <!-- =================================================================== -->
+        <section id="tab-content-jobs" class="hidden space-y-6">
+            <!-- Active Job Inspection Card -->
+            <div id="job-details-card" class="bg-white rounded-2xl border border-[#E5EAEA] p-6 shadow-sm space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Active Inspected Batch</span>
+                        <div class="flex items-center space-x-3 mt-1">
+                            <span id="card-job-id" class="text-base font-mono font-bold text-[#389B98]">No Job Selected</span>
+                            <span id="card-job-status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">None</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4 text-xs text-slate-500 font-mono">
+                        <div>Format: <strong id="card-job-format" class="text-slate-800 font-bold">-</strong></div>
+                        <div>System: <strong id="card-job-system" class="text-slate-800 font-bold">-</strong></div>
+                        <div>Duration: <strong id="card-job-duration" class="text-slate-800 font-bold">-</strong></div>
+                    </div>
+                </div>
+
+                <!-- KPI Metric Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
+                    <div class="bg-[#F7F9FA] p-3.5 rounded-xl border border-[#E5EAEA]">
+                        <span class="text-[10px] text-slate-500 font-bold uppercase">Total Records</span>
+                        <div id="metric-total" class="text-xl font-bold text-slate-800 mt-1">0</div>
+                    </div>
+                    <div class="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200">
+                        <span class="text-[10px] text-emerald-600 font-bold uppercase">Normalized</span>
+                        <div id="metric-success" class="text-xl font-bold text-emerald-700 mt-1">0</div>
+                    </div>
+                    <div class="bg-purple-50 p-3.5 rounded-xl border border-purple-200">
+                        <span class="text-[10px] text-purple-600 font-bold uppercase">Duplicates</span>
+                        <div id="metric-duplicates" class="text-xl font-bold text-purple-700 mt-1">0</div>
+                    </div>
+                    <div class="bg-amber-50 p-3.5 rounded-xl border border-amber-200">
+                        <span class="text-[10px] text-amber-600 font-bold uppercase">Conflicts</span>
+                        <div id="metric-conflicts" class="text-xl font-bold text-amber-700 mt-1">0</div>
+                    </div>
+                    <div class="bg-yellow-50 p-3.5 rounded-xl border border-yellow-200">
+                        <span class="text-[10px] text-yellow-700 font-bold uppercase">Warnings</span>
+                        <div id="metric-warnings" class="text-xl font-bold text-yellow-800 mt-1">0</div>
+                    </div>
+                    <div class="bg-rose-50 p-3.5 rounded-xl border border-rose-200">
+                        <span class="text-[10px] text-[#DE3449] font-bold uppercase">Rejected</span>
+                        <div id="metric-rejected" class="text-xl font-bold text-[#DE3449] mt-1">0</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end space-x-3 pt-1">
+                    <button onclick="viewCurrentJobReport()" class="inline-flex items-center space-x-1.5 text-xs bg-[#F7F9FA] hover:bg-slate-100 text-[#389B98] border border-[#E5EAEA] px-4 py-2 rounded-xl font-semibold transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Audit & Reconciliation Report</span>
+                    </button>
+                    <button onclick="viewCurrentJobRecords()" class="inline-flex items-center space-x-1.5 text-xs bg-[#389B98] hover:bg-[#287F7D] text-white font-semibold px-4 py-2 rounded-xl shadow-sm transition-all">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                        </svg>
+                        <span>Inspect Records</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ingestion Jobs Table -->
+            <div class="bg-white rounded-2xl border border-[#E5EAEA] p-6 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800">Historical Ingestion Jobs</h3>
+                        <p class="text-xs text-slate-500">Select any batch to inspect execution metrics, domain outputs, and anomalies.</p>
+                    </div>
+
+                    <div class="flex items-center space-x-2 text-xs">
+                        <select id="jobs-status-filter" onchange="handleJobFilterChange()" class="bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-1.5 text-xs text-slate-700">
+                            <option value="">All Job States</option>
+                            <option value="COMPLETED">COMPLETED</option>
+                            <option value="PROCESSING">PROCESSING</option>
+                            <option value="FAILED">FAILED</option>
+                        </select>
+                        <button onclick="loadIngestionJobsList(1)" class="p-1.5 rounded-xl border border-[#E5EAEA] bg-[#F7F9FA] hover:bg-slate-100 text-slate-700">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto border border-[#E5EAEA] rounded-xl">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px]">
+                            <tr>
+                                <th class="px-4 py-3">Job ID</th>
+                                <th class="px-4 py-3">Source System</th>
+                                <th class="px-4 py-3">Format</th>
+                                <th class="px-4 py-3 text-right">Total</th>
+                                <th class="px-4 py-3 text-right">Normalized</th>
+                                <th class="px-4 py-3 text-center">Status</th>
+                                <th class="px-4 py-3 text-right">Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jobs-table-body" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="7" class="p-8 text-center text-slate-400">Loading jobs...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex items-center justify-between pt-2 text-xs text-slate-500">
+                    <span id="jobs-pagination-info">Showing 0 jobs</span>
+                    <div class="flex items-center space-x-1.5">
+                        <button id="jobs-prev-page-btn" onclick="changeJobPage(-1)" class="p-2 rounded-lg bg-[#F7F9FA] border border-[#E5EAEA] hover:bg-slate-100 disabled:opacity-30" disabled>
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <button id="jobs-next-page-btn" onclick="changeJobPage(1)" class="p-2 rounded-lg bg-[#F7F9FA] border border-[#E5EAEA] hover:bg-slate-100 disabled:opacity-30" disabled>
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 6: CANONICAL RECORDS & AUDIT EXPLORER -->
+        <!-- =================================================================== -->
+        <section id="tab-content-explorer" class="hidden space-y-6">
+            <!-- Filter & Status Bar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#E5EAEA] p-4 rounded-2xl shadow-sm">
+                <div class="flex items-center space-x-3">
+                    <label class="text-xs font-semibold text-slate-600">Filter Status:</label>
+                    <select id="explorer-status-filter" onchange="handleExplorerStatusFilterChange()" class="bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:border-[#389B98]">
+                        <option value="">All Records</option>
+                        <option value="NORMALIZED">NORMALIZED (Cleaned)</option>
+                        <option value="MANUAL_REVIEW_REQUIRED">MANUAL_REVIEW_REQUIRED (Conflict)</option>
+                        <option value="DUPLICATE">DUPLICATE</option>
+                        <option value="REJECTED">REJECTED</option>
+                    </select>
+                </div>
+                <div class="flex items-center space-x-2 text-xs text-slate-500">
+                    <span id="records-pagination-info">Showing records 0-0 of 0</span>
+                    <button id="records-prev-page-btn" onclick="changeExplorerRecordPage(-1)" class="p-1.5 rounded-lg bg-[#F7F9FA] border border-[#E5EAEA] hover:bg-slate-100 disabled:opacity-30" disabled>
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <button id="records-next-page-btn" onclick="changeExplorerRecordPage(1)" class="p-1.5 rounded-lg bg-[#F7F9FA] border border-[#E5EAEA] hover:bg-slate-100 disabled:opacity-30" disabled>
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Clinical Records Table -->
+            <div class="bg-white border border-[#E5EAEA] rounded-2xl overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px]">
+                            <tr>
+                                <th class="px-4 py-3.5">Record ID</th>
+                                <th class="px-4 py-3.5">Patient ID</th>
+                                <th class="px-4 py-3.5 text-center">Status</th>
+                                <th class="px-4 py-3.5">Record Date</th>
+                                <th class="px-4 py-3.5">Cleaned Text / Notes Preview</th>
+                                <th class="px-4 py-3.5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="records-table-body" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="6" class="px-4 py-8 text-center text-slate-400 font-mono">
+                                    Loading canonical records...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Append-only Audit Trail Section -->
+            <div class="bg-white border border-[#E5EAEA] rounded-2xl p-6 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800">Per-Record Ingestion Audit Trail</h3>
+                        <p class="text-xs text-slate-500">Append-only audit trail logging per-field demographic transformations, dosage checks, and reconciliation rules.</p>
+                    </div>
+                    <span id="audit-count-badge" class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20">0 Audits</span>
+                </div>
+
+                <div class="overflow-x-auto max-h-96 border border-[#E5EAEA] rounded-xl">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold sticky top-0 text-[10px]">
+                            <tr>
+                                <th class="px-3.5 py-2.5">Field</th>
+                                <th class="px-3.5 py-2.5">Original Value</th>
+                                <th class="px-3.5 py-2.5">Normalized Value</th>
+                                <th class="px-3.5 py-2.5">Transformation</th>
+                                <th class="px-3.5 py-2.5">Component</th>
+                                <th class="px-3.5 py-2.5">Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-table-body" class="divide-y divide-slate-100 font-mono text-[11px]">
+                            <tr>
+                                <td colspan="6" class="px-3.5 py-6 text-center text-slate-400">
+                                    Awaiting audit report generation...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 7: FHIR R4 BUNDLES & CONFORMANCE -->
+        <!-- =================================================================== -->
+        <section id="tab-content-fhir" class="hidden space-y-6">
+            <!-- Normalization Action Bar -->
+            <div class="bg-white border border-[#E5EAEA] rounded-2xl p-6 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800">On-Demand FHIR R4 Normalization Engine</h3>
+                        <p class="text-xs text-slate-500">Transform reconciled patient records into connected HL7 FHIR R4 Bundles with gatekeeper schema validation.</p>
+                    </div>
+                    <button onclick="loadStoredFhirBundles(1)" class="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-[#F7F9FA] hover:bg-slate-100 text-slate-700 border border-[#E5EAEA] flex items-center space-x-1.5 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>Refresh Bundles</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Target Patient ID or Ingestion Job UUID</label>
+                        <input type="text" id="fhir-target-id-input" placeholder="e.g. pat-001 or job-uuid..." class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3.5 py-2 text-xs text-[#263238] focus:bg-white focus:border-[#389B98] font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Bundle Type</label>
+                        <select id="fhir-bundle-type-select" class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl px-3 py-2 text-xs text-[#263238] focus:border-[#389B98]">
+                            <option value="collection" selected>collection (Persistence)</option>
+                            <option value="transaction">transaction (REST PUT)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end space-x-2">
+                        <button onclick="triggerPatientNormalization()" class="flex-1 py-2 px-3 bg-[#389B98] hover:bg-[#287F7D] text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center justify-center space-x-1.5">
+                            <span>Normalize Patient</span>
+                        </button>
+                        <button onclick="triggerJobNormalization()" class="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center justify-center space-x-1.5">
+                            <span>Normalize Job</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stored Bundles Table -->
+            <div class="bg-white border border-[#E5EAEA] rounded-2xl p-6 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800">Persisted HL7 FHIR R4 Bundles</h3>
+                        <p class="text-xs text-slate-500">Conforming, validated patient bundles stored in structured SQLite and atomic file storage.</p>
+                    </div>
+                    <span id="fhir-bundle-count-badge" class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20">0 Bundles</span>
+                </div>
+
+                <div class="overflow-x-auto border border-[#E5EAEA] rounded-xl">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px]">
+                            <tr>
+                                <th class="px-4 py-3">Bundle ID</th>
+                                <th class="px-4 py-3">Patient MRN</th>
+                                <th class="px-4 py-3">Type</th>
+                                <th class="px-4 py-3 text-center">Version</th>
+                                <th class="px-4 py-3 text-center">Status</th>
+                                <th class="px-4 py-3 text-center">Resources</th>
+                                <th class="px-4 py-3">Created At</th>
+                                <th class="px-4 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fhir-bundles-table-body" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="8" class="px-4 py-8 text-center text-slate-400">
+                                    Loading stored FHIR Bundles...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
 
     </main>
 
+    <!-- ======================================================================= -->
+    <!-- PATIENT DETAIL DRAWER (PHASE 5.3) -->
+    <!-- ======================================================================= -->
+    <div id="patient-drawer-backdrop" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity" onclick="closePatientDrawer()"></div>
+
+    <aside id="patient-detail-drawer" class="fixed top-0 right-0 z-50 h-full w-full max-w-2xl bg-white border-l border-[#E5EAEA] shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-in-out" aria-label="Patient Detail Drawer">
+        <!-- Drawer Header -->
+        <div class="px-6 py-4 border-b border-[#E5EAEA] bg-white flex items-start justify-between flex-shrink-0">
+            <div class="space-y-1">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#389B98]"></span>
+                    <h3 id="drawer-patient-name" class="text-base font-bold text-[#263238] tracking-tight">Patient Detail Deep Dive</h3>
+                </div>
+                <div id="drawer-patient-meta"></div>
+            </div>
+            <button onclick="closePatientDrawer()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors" title="Close drawer (Esc)">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+
+        <!-- Drawer Navigation Tabs -->
+        <div class="border-b border-[#E5EAEA] px-6 bg-[#F7F9FA] flex-shrink-0">
+            <nav class="flex space-x-4 text-xs font-semibold" aria-label="Drawer Tabs">
+                <button id="drawer-tab-btn-summary" onclick="switchDrawerTab('summary')" class="px-4 py-2.5 border-b-2 border-[#389B98] text-[#389B98] flex items-center space-x-1.5 transition-colors">
+                    <span>AI Clinical Summary</span>
+                </button>
+                <button id="drawer-tab-btn-fhir" onclick="switchDrawerTab('fhir')" class="px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors">
+                    <span>Linked FHIR Resources</span>
+                </button>
+                <button id="drawer-tab-btn-records" onclick="switchDrawerTab('records')" class="px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors">
+                    <span>Clinical Records</span>
+                </button>
+                <button id="drawer-tab-btn-demographics" onclick="switchDrawerTab('demographics')" class="px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors">
+                    <span>Demographics</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Drawer Body -->
+        <div id="drawer-content-body" class="flex-1 overflow-y-auto bg-[#F7F9FA]">
+            <!-- Injected by drawer.js -->
+        </div>
+
+        <!-- Drawer Footer -->
+        <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex items-center justify-between flex-shrink-0 text-xs">
+            <span class="text-slate-400">Press <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[10px] border">Esc</kbd> to dismiss</span>
+            <button onclick="closePatientDrawer()" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors">
+                Close
+            </button>
+        </div>
+    </aside>
+
+    <!-- ======================================================================= -->
+    <!-- MODALS -->
+    <!-- ======================================================================= -->
+
     <!-- FHIR Bundle JSON Viewer Modal -->
-    <div id="fhir-bundle-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-                <div class="flex items-center space-x-3">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                    <h3 class="text-sm font-semibold text-slate-100" id="fhir-modal-title">HL7 FHIR R4 Bundle JSON</h3>
+    <div id="fhir-bundle-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div class="px-6 py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
+                <div class="flex items-center space-x-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#389B98]"></span>
+                    <h3 class="text-sm font-bold text-slate-800" id="fhir-modal-title">HL7 FHIR R4 Bundle JSON</h3>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <button onclick="downloadActiveFhirBundle()" class="px-3 py-1 text-xs font-medium rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center space-x-1">
+                    <button onclick="copyActiveFhirBundle()" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center space-x-1">
+                        <span>Copy JSON</span>
+                    </button>
+                    <button onclick="downloadActiveFhirBundle()" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#389B98] hover:bg-[#287F7D] text-white transition-colors flex items-center space-x-1 shadow-sm">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         <span>Download JSON</span>
                     </button>
-                    <button onclick="closeFhirBundleModal()" class="text-slate-400 hover:text-slate-200 text-lg leading-none p-1">&times;</button>
+                    <button onclick="closeFhirBundleModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none p-1.5 rounded-lg">&times;</button>
                 </div>
             </div>
-            <div class="p-6 overflow-y-auto space-y-4 flex-1">
-                <pre id="fhir-modal-json-content" class="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-[11px] text-emerald-300 overflow-x-auto max-h-[60vh] leading-relaxed"></pre>
+            <div class="p-6 overflow-y-auto space-y-4 flex-1 bg-[#F7F9FA]">
+                <pre id="fhir-modal-json-content" class="bg-white border border-[#E5EAEA] rounded-xl p-4 font-mono text-[11px] text-slate-800 overflow-x-auto max-h-[60vh] leading-relaxed shadow-sm"></pre>
             </div>
-            <div class="px-6 py-3 border-t border-slate-800 bg-slate-950/60 flex justify-end">
-                <button onclick="closeFhirBundleModal()" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors">Close</button>
+            <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
+                <button onclick="closeFhirBundleModal()" class="px-4 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- FHIR Validation Report Modal -->
-    <div id="fhir-report-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-                <div class="flex items-center space-x-3">
-                    <span id="fhir-report-status-badge" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                    <h3 class="text-sm font-semibold text-slate-100" id="fhir-report-modal-title">FHIR R4 Conformance & Validation Report</h3>
+    <!-- FHIR Validation & Conformance Report Modal -->
+    <div id="fhir-report-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div class="px-6 py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
+                <div class="flex items-center space-x-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#389B98]"></span>
+                    <h3 class="text-sm font-bold text-slate-800" id="fhir-report-modal-title">FHIR R4 Conformance & Validation Report</h3>
                 </div>
-                <button onclick="closeFhirReportModal()" class="text-slate-400 hover:text-slate-200 text-lg leading-none p-1">&times;</button>
+                <button onclick="closeFhirReportModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none p-1.5 rounded-lg">&times;</button>
             </div>
-            <div class="p-6 overflow-y-auto space-y-4 flex-1">
+            <div class="p-6 overflow-y-auto space-y-5 flex-1 bg-[#F7F9FA]">
                 <div id="fhir-report-summary-cards" class="grid grid-cols-4 gap-3 text-center text-xs"></div>
-                <div>
-                    <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Conforming Issues & Diagnostic Recommendations</h4>
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Conforming Issues & Diagnostic Recommendations</h4>
                     <div id="fhir-report-issues-container" class="space-y-2 max-h-[50vh] overflow-y-auto"></div>
                 </div>
             </div>
-            <div class="px-6 py-3 border-t border-slate-800 bg-slate-950/60 flex justify-end">
-                <button onclick="closeFhirReportModal()" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors">Close</button>
+            <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
+                <button onclick="closeFhirReportModal()" class="px-4 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- Detail Inspection Modal -->
-    <div id="record-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-                <div class="flex items-center space-x-3">
-                    <h3 class="text-sm font-bold text-slate-200">Clinical Record Deep Dive</h3>
-                    <span id="modal-status-badge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">NORMALIZED</span>
+    <!-- Job Audit & Reconciliation Report Modal -->
+    <div id="job-report-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div class="px-6 py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
+                <div class="flex items-center space-x-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#389B98]"></span>
+                    <h3 class="text-sm font-bold text-slate-800" id="job-report-modal-title">Ingestion Audit & Reconciliation Report</h3>
                 </div>
-                <button onclick="closeRecordModal()" class="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800">
+                <button onclick="closeJobReportModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none p-1.5 rounded-lg">&times;</button>
+            </div>
+            <div id="job-report-modal-content" class="p-6 overflow-y-auto space-y-5 flex-1 bg-[#F7F9FA]"></div>
+            <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
+                <button onclick="closeJobReportModal()" class="px-4 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Record Deep Dive Modal -->
+    <div id="record-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div class="px-6 py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
+                <div class="flex items-center space-x-3">
+                    <h3 class="text-sm font-bold text-slate-800">Clinical Record Deep Dive</h3>
+                    <span id="modal-status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">NORMALIZED</span>
+                </div>
+                <button onclick="closeRecordModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
             
-            <div class="p-6 overflow-y-auto space-y-5 text-xs text-slate-300">
+            <div class="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 bg-[#F7F9FA]">
                 <!-- Record Metadata -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-xl border border-[#E5EAEA] font-mono shadow-sm">
                     <div>
-                        <span class="text-slate-500">Record ID:</span>
-                        <div id="modal-record-id" class="text-slate-200 truncate mt-0.5 font-semibold">-</div>
+                        <span class="text-slate-400 text-[10px]">Record ID:</span>
+                        <div id="modal-record-id" class="text-slate-800 truncate mt-0.5 font-bold text-[11px]">-</div>
                     </div>
                     <div>
-                        <span class="text-slate-500">Patient ID:</span>
-                        <div id="modal-patient-id" class="text-blue-400 truncate mt-0.5 font-semibold">-</div>
+                        <span class="text-slate-400 text-[10px]">Patient ID:</span>
+                        <div id="modal-patient-id" class="text-[#389B98] truncate mt-0.5 font-bold text-[11px]">-</div>
                     </div>
                     <div>
-                        <span class="text-slate-500">Fingerprint:</span>
-                        <div id="modal-fingerprint" class="text-purple-400 truncate mt-0.5">-</div>
+                        <span class="text-slate-400 text-[10px]">Fingerprint:</span>
+                        <div id="modal-fingerprint" class="text-purple-600 truncate mt-0.5 text-[11px]">-</div>
                     </div>
                     <div>
-                        <span class="text-slate-500">Record Date:</span>
-                        <div id="modal-record-date" class="text-slate-200 truncate mt-0.5">-</div>
+                        <span class="text-slate-400 text-[10px]">Record Date:</span>
+                        <div id="modal-record-date" class="text-slate-800 truncate mt-0.5 text-[11px]">-</div>
                     </div>
                 </div>
 
                 <!-- Cleaned Text Box -->
-                <div>
-                    <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <div class="space-y-1.5">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
                         <span>Cleaned & Normalized Clinical Text</span>
-                        <span class="text-[10px] text-emerald-400 font-normal">Preserved dosages, vitals & units</span>
+                        <span class="text-[10px] text-emerald-600 font-semibold">Preserved dosages, vitals & units</span>
                     </h4>
-                    <pre id="modal-cleaned-text" class="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-slate-200 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto"></pre>
+                    <pre id="modal-cleaned-text" class="bg-white border border-[#E5EAEA] rounded-xl p-4 font-mono text-slate-800 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto shadow-sm"></pre>
                 </div>
 
-                <!-- Parsed Structured Payload -->
-                <div>
-                    <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Intermediate Canonical Payload</h4>
-                    <pre id="modal-parsed-payload" class="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-[11px] text-blue-300 overflow-x-auto max-h-48"></pre>
+                <!-- Structured Clinical Attributes & Intermediate Payload -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+                            <span class="w-2 h-2 rounded-full bg-[#389B98]"></span>
+                            <span>Structured Clinical Attributes</span>
+                        </h4>
+                        <button id="btn-toggle-modal-raw" onclick="toggleModalRawPayload()" class="text-[11px] font-semibold text-[#389B98] hover:text-[#287F7D] flex items-center space-x-1">
+                            <span id="label-toggle-modal-raw">View Raw JSON</span>
+                        </button>
+                    </div>
+
+                    <!-- Structured Attribute Grid -->
+                    <div id="modal-structured-payload" class="bg-white border border-[#E5EAEA] rounded-xl p-4 shadow-sm">
+                        <!-- Injected by modals.js -->
+                    </div>
+
+                    <!-- Collapsible Raw JSON Container (Hidden by default) -->
+                    <div id="modal-raw-payload-wrapper" class="hidden space-y-1">
+                        <pre id="modal-parsed-payload" class="bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl p-4 font-mono text-[11px] text-slate-800 overflow-x-auto max-h-48 shadow-sm leading-relaxed"></pre>
+                    </div>
                 </div>
 
                 <!-- Validation Issues (if any) -->
-                <div id="modal-errors-section" class="hidden">
-                    <h4 class="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-1.5">Validation Diagnostics & Conflicts</h4>
-                    <pre id="modal-errors-content" class="bg-rose-950/20 border border-rose-500/30 rounded-xl p-3 font-mono text-rose-300 text-[11px]"></pre>
+                <div id="modal-errors-section" class="hidden space-y-2">
+                    <h4 class="text-xs font-bold text-[#DE3449] uppercase tracking-wider flex items-center space-x-1.5">
+                        <span class="w-2 h-2 rounded-full bg-[#DE3449]"></span>
+                        <span>Validation Diagnostics & Schema Conflicts</span>
+                    </h4>
+                    <div id="modal-errors-cards" class="space-y-2"></div>
                 </div>
             </div>
 
-            <div class="px-6 py-3 border-t border-slate-800 bg-slate-950/60 flex justify-end">
-                <button onclick="closeRecordModal()" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors">
+            <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
+                <button onclick="closeRecordModal()" class="px-4 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
                     Close
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="/src/main.js"></script>
+    <!-- Application Script (ES Module) -->
+    <script type="module" src="/src/main.js"></script>
 </body>
 </html>

@@ -121,3 +121,15 @@ class RecordPaginationResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class JobPaginationResponse(BaseModel):
+    """Paginated list of ingestion jobs."""
+    model_config = ConfigDict(extra="ignore")
+
+    items: List[IngestionJobResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+

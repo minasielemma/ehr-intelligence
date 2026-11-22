@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 import uuid
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -69,3 +70,34 @@ class ClinicalSummaryModel(Base):
         Index("ix_clinical_summary_patient_created", "patient_id", "created_at"),
         Index("ix_clinical_summary_hash_model", "bundle_hash", "model_name"),
     )
+
+
+class SummaryTaskModel(Base):
+    """Persistent task tracker for asynchronous AI clinical summary generation & regeneration jobs."""
+
+    __tablename__ = "summary_tasks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    patient_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    bundle_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    force_refresh: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING", index=True)
+    message: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+    summary_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    patient: Mapped["PatientModel"] = relationship("PatientModel")
+
+    __table_args__ = (
+        Index("ix_summary_tasks_patient_created", "patient_id", "created_at"),
+    )
+

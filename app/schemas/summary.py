@@ -225,3 +225,23 @@ class LLMHealthResponse(BaseModel):
     available: bool = Field(..., description="True if provider endpoint and model are ready")
     latency_ms: Optional[float] = Field(default=None, description="Round-trip ping/tags latency in milliseconds")
     details: Optional[Dict[str, Any]] = Field(default=None, description="Underlying provider metadata or errors")
+
+
+class SummaryTaskResponse(BaseModel):
+    """Status and result response for asynchronous AI clinical summary generation and regeneration."""
+    model_config = ConfigDict(extra="ignore")
+
+    task_id: str = Field(..., description="Unique background task identifier")
+    patient_id: str = Field(..., description="Target patient identifier")
+    status: str = Field(..., description="Task execution status: PENDING, PROCESSING, COMPLETED, FAILED, or NOT_FOUND")
+    message: str = Field(..., description="Human-readable status summary")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="ISO-8601 timestamp of task creation",
+    )
+    started_at: Optional[datetime] = Field(default=None, description="ISO-8601 timestamp of execution start")
+    completed_at: Optional[datetime] = Field(default=None, description="ISO-8601 timestamp of task completion")
+    duration_seconds: Optional[float] = Field(default=None, description="Elapsed execution duration in seconds")
+    summary: Optional[ClinicalSummaryResponse] = Field(default=None, description="Generated clinical summary object when completed")
+    error_message: Optional[str] = Field(default=None, description="Detailed error description if task failed")
+

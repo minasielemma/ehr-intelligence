@@ -1,28 +1,149 @@
-/* EHR Intelligence Platform Custom Styles */
-body {
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+/* ==============================================================================
+   Ony(e) EHR Intelligence Platform - Professional Clinical Design System
+   Brand Color Tokens:
+     - Primary Brand: Teal (#389B98)
+     - Primary Hover: Dark Teal (#287F7D)
+     - Accent: Coral Red (#DE3449)
+     - Main Background: White (#FFFFFF)
+     - Secondary Background: Very Light Gray (#F7F9FA)
+     - Primary Text: Dark Charcoal (#263238)
+     - Secondary Text: Muted Gray (#718096)
+     - Borders: Light Gray (#E5EAEA)
+============================================================================== */
+
+:root {
+  --color-primary: #389B98;
+  --color-primary-hover: #287F7D;
+  --color-accent: #DE3449;
+  --color-bg-main: #FFFFFF;
+  --color-bg-secondary: #F7F9FA;
+  --color-text-main: #263238;
+  --color-text-muted: #718096;
+  --color-border: #E5EAEA;
 }
 
-/* Custom Webkit Scrollbars for code blocks and tables */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--color-text-main);
+  background-color: var(--color-bg-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: #0f172a;
+  background: #F1F4F6;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #334155;
-    border-radius: 9999px;
+  background: #CBD5E1;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #475569;
+  background: #94A3B8;
 }
 
-/* Tab button active transitions */
-.tab-button {
-    transition: all 0.15s ease-in-out;
+/* Transitions */
+.transition-smooth {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* Drawer Animation */
+.drawer-enter {
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.drawer-enter-active {
+  transform: translateX(0);
+}
+.drawer-exit {
+  transform: translateX(0);
+  transition: transform 0.25s cubic-bezier(0.7, 0, 0.84, 0);
+}
+.drawer-exit-active {
+  transform: translateX(100%);
+}
+
+/* Skeleton Loading Pulse */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Clinical focus indicators for accessibility */
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid #389B98;
+  outline-offset: 2px;
+}
+
+/* ==============================================================================
+   Air-Gapped & Offline Clinical Network Resiliency Fallbacks
+   Ensures layout, grid, and UI components remain fully structured even if
+   external CDN access (cdn.tailwindcss.com) is restricted or firewalled.
+   ============================================================================== */
+
+/* Critical Layout Classes */
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.grid { display: grid; }
+.hidden { display: none !important; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+.sticky { position: sticky; }
+
+/* Grid Columns */
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+/* Spacing & Gaps */
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-6 { gap: 1.5rem; }
+.space-x-1 > * + * { margin-left: 0.25rem; }
+.space-x-2 > * + * { margin-left: 0.5rem; }
+.space-x-3 > * + * { margin-left: 0.75rem; }
+.space-y-2 > * + * { margin-top: 0.5rem; }
+.space-y-3 > * + * { margin-top: 0.75rem; }
+.space-y-4 > * + * { margin-top: 1rem; }
+.space-y-6 > * + * { margin-top: 1.5rem; }
+
+/* Containers & Cards */
+.card-clinical {
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Badge Fallbacks */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  border-width: 1px;
+}
+
