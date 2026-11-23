@@ -62,6 +62,7 @@ function renderDashboardSkeleton(container) {
 }
 
 function renderDashboardError(container, message) {
+    console.error("Dashboard load failure:", message);
     container.innerHTML = `
         <div class="bg-white border border-[#E5EAEA] rounded-2xl p-12 text-center space-y-4 shadow-sm">
             <div class="w-12 h-12 rounded-full bg-rose-50 text-[#DE3449] flex items-center justify-center mx-auto">
@@ -136,15 +137,15 @@ function renderDashboardContent(container, data) {
     ];
 
     const kpiCardsHtml = kpis.map(kpi => `
-        <div class="bg-white rounded-2xl border border-[#E5EAEA] p-4 shadow-sm hover:border-[#389B98]/40 transition-colors">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider text-[11px]">${escapeHtml(kpi.title)}</span>
-                <div class="p-1.5 rounded-lg ${kpi.bg} ${kpi.color}">
-                    ${iconSvg(kpi.icon, "w-4 h-4")}
+        <div class="bg-white rounded-2xl border border-[#E5EAEA] p-3.5 sm:p-4 shadow-sm hover:border-[#389B98]/40 transition-all flex flex-col justify-between">
+            <div class="flex items-center justify-between gap-1.5">
+                <span class="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate" title="${escapeHtml(kpi.title)}">${escapeHtml(kpi.title)}</span>
+                <div class="p-1 sm:p-1.5 rounded-lg ${kpi.bg} ${kpi.color} flex-shrink-0">
+                    ${iconSvg(kpi.icon, "w-3.5 h-3.5 sm:w-4 sm:h-4")}
                 </div>
             </div>
-            <div class="text-2xl font-bold text-slate-800 mt-2 tracking-tight">${kpi.value}</div>
-            <div class="text-[11px] text-slate-400 mt-1">${escapeHtml(kpi.desc)}</div>
+            <div class="text-xl sm:text-2xl font-bold text-slate-800 mt-1.5 sm:mt-2 tracking-tight truncate">${kpi.value}</div>
+            <div class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate" title="${escapeHtml(kpi.desc)}">${escapeHtml(kpi.desc)}</div>
         </div>
     `).join("");
 
@@ -210,7 +211,7 @@ function renderDashboardContent(container, data) {
     container.innerHTML = `
         <div class="space-y-6">
             <!-- Header Bar -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#E5EAEA] shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-[#E5EAEA] shadow-sm">
                 <div class="space-y-1">
                     <div class="flex items-center space-x-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-[#389B98]"></span>
@@ -221,7 +222,7 @@ function renderDashboardContent(container, data) {
                     </p>
                 </div>
 
-                <div class="flex items-center space-x-3 text-xs">
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
                     <button
                         onclick="toggleAutoRefresh()"
                         id="btn-auto-refresh"
@@ -241,14 +242,14 @@ function renderDashboardContent(container, data) {
             </div>
 
             <!-- KPI Metric Cards Grid -->
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+            <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
                 ${kpiCardsHtml}
             </div>
 
             <!-- Middle Section: Domain Breakdown & Recent Jobs -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Domain Breakdown Card -->
-                <div class="bg-white rounded-2xl border border-[#E5EAEA] p-5 shadow-sm space-y-4">
+                <div class="bg-white rounded-2xl border border-[#E5EAEA] p-4 sm:p-5 shadow-sm space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                         <div class="flex items-center space-x-2">
                             <span class="p-1 rounded bg-[#389B98]/10 text-[#389B98]">
@@ -265,7 +266,7 @@ function renderDashboardContent(container, data) {
                 </div>
 
                 <!-- Recent Ingestion Jobs Card -->
-                <div class="lg:col-span-2 bg-white rounded-2xl border border-[#E5EAEA] p-5 shadow-sm space-y-4">
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-[#E5EAEA] p-4 sm:p-5 shadow-sm space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                         <div class="flex items-center space-x-2">
                             <span class="p-1 rounded bg-blue-50 text-blue-600">
@@ -279,7 +280,7 @@ function renderDashboardContent(container, data) {
                         </button>
                     </div>
 
-                    <div class="overflow-x-auto max-h-80">
+                    <div class="table-responsive-wrapper max-h-80">
                         <table class="w-full text-left text-xs">
                             <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px] sticky top-0">
                                 <tr>
@@ -300,7 +301,7 @@ function renderDashboardContent(container, data) {
             </div>
 
             <!-- Bottom Section: Recent Canonical Patients -->
-            <div class="bg-white rounded-2xl border border-[#E5EAEA] p-5 shadow-sm space-y-4">
+            <div class="bg-white rounded-2xl border border-[#E5EAEA] p-4 sm:p-5 shadow-sm space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div class="flex items-center space-x-2">
                         <span class="p-1 rounded bg-emerald-50 text-emerald-600">
@@ -314,7 +315,7 @@ function renderDashboardContent(container, data) {
                     </button>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="table-responsive-wrapper">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px]">
                             <tr>

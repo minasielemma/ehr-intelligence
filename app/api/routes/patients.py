@@ -286,7 +286,15 @@ async def get_patient_records(
     db: AsyncSession = Depends(get_db_session),
 ) -> RecordPaginationResponse:
     """Return paginated clinical records for a specific patient."""
-    conditions = [ClinicalRecordModel.patient_id == patient_id]
+    # Resolve canonical patient (by id or mrn fallback)
+    patient_stmt = select(PatientModel).where(PatientModel.id == patient_id)
+    patient = (await db.execute(patient_stmt)).scalars().first()
+    if not patient:
+        mrn_stmt = select(PatientModel).where(PatientModel.mrn == patient_id)
+        patient = (await db.execute(mrn_stmt)).scalars().first()
+
+    canonical_patient_id = patient.id if patient else patient_id
+    conditions = [ClinicalRecordModel.patient_id == canonical_patient_id]
     if status_filter:
         conditions.append(ClinicalRecordModel.status == status_filter.upper())
 
@@ -343,16 +351,32 @@ async def get_patient_fhir_resources(
     db: AsyncSession = Depends(get_db_session),
 ) -> List[LinkedFHIRResourceItem]:
     """Retrieve actual linked FHIR resources (Observations, Conditions, DiagnosticReports, etc.) for a patient."""
-    # First check if a stored FHIR Bundle exists for this patient
+    # Resolve canonical patient (by id or mrn fallback)
+    patient_stmt = select(PatientModel).where(PatientModel.id == patient_id)
+    patient = (await db.execute(patient_stmt)).scalars().first()
+    if not patient:
+        mrn_stmt = select(PatientModel).where(PatientModel.mrn == patient_id)
+        patient = (await db.execute(mrn_stmt)).scalars().first()
+
+    canonical_patient_id = patient.id if patient else patient_id
+    canonical_mrn = patient.mrn if patient else patient_id
+
+    # Check if a stored FHIR Bundle exists for this patient
     bundle_stmt = (
         select(FHIRBundleModel)
-        .where(FHIRBundleModel.patient_id == patient_id)
-        .order_by(desc(FHIRBundleModel.version))
+        .where(
+            or_(
+                FHIRBundleModel.patient_id == canonical_patient_id,
+                FHIRBundleModel.patient_mrn == canonical_mrn,
+            )
+        )
+        .order_by(desc(FHIRBundleModel.version), desc(FHIRBundleModel.created_at))
         .limit(1)
     )
     bundle_model = (await db.execute(bundle_stmt)).scalars().first()
 
     resources: List[LinkedFHIRResourceItem] = []
+    seen_resource_ids = set()
 
     if bundle_model and bundle_model.bundle_json:
         entries = bundle_model.bundle_json.get("entry", [])
@@ -360,6 +384,7 @@ async def get_patient_fhir_resources(
             res = entry.get("resource", {})
             rtype = res.get("resourceType", "Resource")
             rid = res.get("id", "unknown")
+            seen_resource_ids.add(rid)
 
             title = rtype
             date_val = None
@@ -409,6 +434,8 @@ async def get_patient_fhir_resources(
                 "resourceType": rtype,
                 "status": status_val,
                 "date": date_val,
+                "bundle_id": bundle_model.bundle_id,
+                "bundle_version": bundle_model.version,
             }
             resources.append(
                 LinkedFHIRResourceItem(
@@ -421,62 +448,89 @@ async def get_patient_fhir_resources(
                     raw_resource=res,
                 )
             )
-        return resources
 
-    # Fallback to domain models if no bundle has been normalized yet
+    # In addition, check domain models for any unbundled or freshly ingested items
     # 1. Observations
-    obs_stmt = select(ObservationModel).where(ObservationModel.patient_id == patient_id).limit(50)
+    obs_stmt = select(ObservationModel).where(ObservationModel.patient_id == canonical_patient_id).limit(50)
     observations = list((await db.execute(obs_stmt)).scalars().all())
     for obs in observations:
-        display = obs.code.get("text") if isinstance(obs.code, dict) else str(obs.code)
-        val = f"{obs.value_quantity.get('value', '')} {obs.value_quantity.get('unit', '')}" if obs.value_quantity else str(obs.value_string or "")
+        if obs.id in seen_resource_ids:
+            continue
+        display = obs.display or obs.code
+        val = f"{obs.value_numeric} {obs.unit or ''}".strip() if obs.value_numeric is not None else str(obs.value_string or "")
         title = f"Observation: {display} {val}".strip()
         resources.append(
             LinkedFHIRResourceItem(
                 resource_type="Observation",
                 id=obs.id,
                 title=title,
-                date=str(obs.effective_datetime) if obs.effective_datetime else None,
+                date=str(obs.effective_date) if obs.effective_date else None,
                 status=obs.status,
                 details={"encounter_id": obs.encounter_id, "category": obs.category},
-                raw_resource={"id": obs.id, "resourceType": "Observation", "status": obs.status, "code": obs.code, "valueQuantity": obs.value_quantity},
+                raw_resource={
+                    "id": obs.id,
+                    "resourceType": "Observation",
+                    "status": obs.status,
+                    "code": {"text": obs.display, "coding": [{"code": obs.code, "system": obs.code_system}]},
+                    "valueQuantity": {"value": obs.value_numeric, "unit": obs.unit} if obs.value_numeric is not None else None,
+                    "valueString": obs.value_string,
+                },
             )
         )
+        seen_resource_ids.add(obs.id)
 
     # 2. Conditions
-    cond_stmt = select(ConditionModel).where(ConditionModel.patient_id == patient_id).limit(50)
+    cond_stmt = select(ConditionModel).where(ConditionModel.patient_id == canonical_patient_id).limit(50)
     conditions = list((await db.execute(cond_stmt)).scalars().all())
     for cond in conditions:
-        display = cond.code.get("text") if isinstance(cond.code, dict) else str(cond.code)
-        title = f"Condition: {display}"
+        if cond.id in seen_resource_ids:
+            continue
+        display = cond.display or cond.code
+        title = f"Diagnosis: {display}"
         resources.append(
             LinkedFHIRResourceItem(
                 resource_type="Condition",
                 id=cond.id,
                 title=title,
-                date=str(cond.recorded_date or cond.onset_datetime),
+                date=str(cond.recorded_date or cond.onset_date or ""),
                 status=cond.clinical_status,
                 details={"verification_status": cond.verification_status, "severity": cond.severity},
-                raw_resource={"id": cond.id, "resourceType": "Condition", "clinicalStatus": cond.clinical_status, "code": cond.code},
+                raw_resource={
+                    "id": cond.id,
+                    "resourceType": "Condition",
+                    "clinicalStatus": cond.clinical_status,
+                    "verificationStatus": cond.verification_status,
+                    "code": {"text": cond.display, "coding": [{"code": cond.code, "system": cond.code_system}]},
+                },
             )
         )
+        seen_resource_ids.add(cond.id)
 
     # 3. DiagnosticReports
-    diag_stmt = select(DiagnosticReportModel).where(DiagnosticReportModel.patient_id == patient_id).limit(50)
+    diag_stmt = select(DiagnosticReportModel).where(DiagnosticReportModel.patient_id == canonical_patient_id).limit(50)
     diagnostics = list((await db.execute(diag_stmt)).scalars().all())
     for diag in diagnostics:
-        display = diag.code.get("text") if isinstance(diag.code, dict) else str(diag.code)
+        if diag.id in seen_resource_ids:
+            continue
+        display = diag.display or diag.code
         title = f"Diagnostic Report: {display}"
         resources.append(
             LinkedFHIRResourceItem(
                 resource_type="DiagnosticReport",
                 id=diag.id,
                 title=title,
-                date=str(diag.effective_datetime or diag.issued),
+                date=str(diag.effective_date or ""),
                 status=diag.status,
                 details={"conclusion": diag.conclusion},
-                raw_resource={"id": diag.id, "resourceType": "DiagnosticReport", "status": diag.status, "code": diag.code, "conclusion": diag.conclusion},
+                raw_resource={
+                    "id": diag.id,
+                    "resourceType": "DiagnosticReport",
+                    "status": diag.status,
+                    "code": {"text": diag.display, "coding": [{"code": diag.code}]},
+                    "conclusion": diag.conclusion,
+                },
             )
         )
+        seen_resource_ids.add(diag.id)
 
     return resources

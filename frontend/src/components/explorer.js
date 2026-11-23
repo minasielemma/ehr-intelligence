@@ -103,7 +103,7 @@ export async function loadRecordsForJob(jobId, page = 1) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="6" class="p-8 text-center text-rose-600 text-xs">
-                        Error loading records: ${escapeHtml(err.message)}
+                        Error loading records: ${escapeHtml(err.message || "Network or server error")}
                     </td>
                 </tr>
             `;

@@ -229,3 +229,119 @@ def test_observation_context_windowing_and_prioritization():
     abnormal_count = sum(1 for o in prompt_obs if o["is_abnormal"])
     assert abnormal_count == 30
 
+
+def test_clinical_summary_unwraps_serialized_json():
+    """Verify that ClinicalSummaryResponse un-escapes serialized JSON narrative strings."""
+    payload = {
+        "patient_id": "pat-json-unwrap",
+        "clinical_summary": '{"clinical_summary": "Patient presented with chest pain and dyspnea."}',
+        "confidence": {"level": "moderate", "explanation": "Verified records."},
+        "model_metadata": {"provider": "ollama", "model": "gemma3:12b"},
+    }
+    summary = ClinicalSummaryResponse.model_validate(payload)
+    assert summary.clinical_summary == "Patient presented with chest pain and dyspnea."
+    assert summary.word_count < 200
+
+
+def test_clinical_summary_strict_schema_validation_rejects_empty():
+    """Verify that ClinicalSummaryResponse strictly rejects empty or invalid dict payloads."""
+    with pytest.raises(ValidationError) as exc_info:
+        ClinicalSummaryResponse.model_validate({})
+    errors = exc_info.value.errors()
+    missing_fields = {e["loc"][0] for e in errors}
+    assert "patient_id" in missing_fields
+    assert "clinical_summary" in missing_fields
+    assert "confidence" in missing_fields
+    assert "model_metadata" in missing_fields
+
+
+def test_confidence_score_coercion():
+    """Verify ConfidenceScore coercion from strings, floats, and partial dicts."""
+    # String coercion
+    c_str = ConfidenceScore.model_validate("High")
+    assert c_str.level == ConfidenceLevel.HIGH
+
+    c_str_mod = ConfidenceScore.model_validate("moderate confidence")
+    assert c_str_mod.level == ConfidenceLevel.MODERATE
+
+    # Float coercion
+    c_float_high = ConfidenceScore.model_validate(0.95)
+    assert c_float_high.level == ConfidenceLevel.HIGH
+
+    c_float_low = ConfidenceScore.model_validate(0.3)
+    assert c_float_low.level == ConfidenceLevel.LOW
+
+    # Partial dict coercion
+    c_dict = ConfidenceScore.model_validate({"level": "high"})
+    assert c_dict.level == ConfidenceLevel.HIGH
+    assert "explanation" in c_dict.model_dump()
+
+
+def test_sanitize_untrusted_text_parses_json_without_ast_eval():
+    """Verify that sanitize_untrusted_text safely unwraps JSON objects without python eval."""
+    raw_note_json = '{"history_id": "hx-100", "assessment": "Stable post-op day 1", "notes": ["ambulating well"]}'
+    sanitized = sanitize_untrusted_text(raw_note_json)
+    assert "Assessment: Stable post-op day 1" in sanitized
+    assert "Notes: ambulating well" in sanitized
+    # History ID should be ignored/cleaned
+    assert "History id:" not in sanitized
+
+
+def test_format_user_prompt_excludes_refuted_conditions():
+    """Verify format_user_prompt does not assert refuted conditions as active diagnoses."""
+    from app.ai.extractor import ExtractedCondition
+
+    patient = ExtractedPatient(id="pat-refuted-1", mrn="MRN-REF")
+    conditions = [
+        ExtractedCondition(
+            id="c1",
+            name="Suspected Pulmonary Embolism",
+            clinical_status="active",
+            verification_status="refuted",
+        ),
+        ExtractedCondition(
+            id="c2",
+            name="Essential Hypertension",
+            clinical_status="active",
+            verification_status="confirmed",
+        ),
+    ]
+    record = ExtractedClinicalRecord(patient=patient, conditions=conditions)
+    prompt = format_user_prompt(record)
+
+    assert '"key_diagnoses": ["Essential Hypertension"]' in prompt
+    instructions_section = prompt[prompt.find("CRITICAL OUTPUT INSTRUCTIONS:"):]
+    assert "Suspected Pulmonary Embolism" not in instructions_section
+
+
+def test_sanitize_untrusted_text_handles_python_dict_literals_and_excludes_audit():
+    """Verify single-quoted dict strings are cleanly parsed and audit events are excluded."""
+    # 1. Medical history note in single-quoted dict representation
+    history_note = "{'history_id': 'HX-001999', 'summary': 'History of diabetes mellitus', 'recorded_date': '2023-12-15'}"
+    sanitized = sanitize_untrusted_text(history_note)
+    assert "Summary: History of diabetes mellitus" in sanitized
+    assert "Recorded date: 2023-12-15" in sanitized
+    assert "History id:" not in sanitized
+
+    # 2. Audit event record should be excluded completely
+    audit_note = "{'audit_event_id': 'AUD-001999', 'action': 'CREATE', 'resource_type': 'Patient'}"
+    assert sanitize_untrusted_text(audit_note) == ""
+
+
+def test_format_user_prompt_compact_payload_structure():
+    """Verify that prompt payload does not include bloated raw reference arrays."""
+    from app.ai.extractor import ExtractedObservation, ExtractedEncounter
+    patient = ExtractedPatient(id="pat-compact", mrn="MRN-COMPACT")
+    encounters = [ExtractedEncounter(id=f"e{i}", encounter_type="AMB") for i in range(20)]
+    observations = [ExtractedObservation(id=f"o{i}", name=f"Obs {i}", category="vital-signs", value=f"{i}", source_reference=f"Observation/o{i}") for i in range(100)]
+    all_refs = [f"Observation/o{i}" for i in range(100)]
+    record = ExtractedClinicalRecord(patient=patient, encounters=encounters, observations=observations, source_references=all_refs)
+
+    prompt = format_user_prompt(record)
+    # The prompt should be compact (< 10,500 characters) despite 100 observations and 20 encounters
+    assert len(prompt) < 10500
+    # Must not contain all_source_references dump
+    assert "all_source_references" not in prompt
+
+
+

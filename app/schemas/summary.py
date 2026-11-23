@@ -7,9 +7,10 @@ disclaimer preservation, and source reference traceability.
 
 from datetime import datetime, timezone
 from enum import Enum
+import json
 import re
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ConfidenceLevel(str, Enum):
@@ -31,6 +32,37 @@ class ConfidenceScore(BaseModel):
         ...,
         description="Clinical rationale explaining the assigned confidence level and any evidential limitations",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_confidence_score(cls, data: Any) -> Any:
+        """Robustly coerce string, float, or partial dict into valid ConfidenceScore."""
+        if isinstance(data, str):
+            clean = data.lower().strip()
+            level = ConfidenceLevel.MODERATE
+            if "high" in clean:
+                level = ConfidenceLevel.HIGH
+            elif "low" in clean:
+                level = ConfidenceLevel.LOW
+            elif "mod" in clean:
+                level = ConfidenceLevel.MODERATE
+            return {
+                "level": level,
+                "explanation": f"Clinical confidence evaluated as {level.value} based on available evidence.",
+            }
+        if isinstance(data, (int, float)):
+            level = ConfidenceLevel.HIGH if data >= 0.8 else (ConfidenceLevel.MODERATE if data >= 0.5 else ConfidenceLevel.LOW)
+            return {
+                "level": level,
+                "explanation": f"Numerical confidence score {data} mapped to {level.value} tier.",
+            }
+        if isinstance(data, dict):
+            if "level" in data and not data.get("explanation"):
+                data["explanation"] = f"Clinical confidence evaluated as {data['level']} from patient records."
+            elif "level" not in data:
+                data["level"] = ConfidenceLevel.MODERATE
+                data["explanation"] = "Confidence inferred from available clinical records."
+        return data
 
 
 class DiagnosticRecordsSummary(BaseModel):
@@ -114,6 +146,82 @@ class ClinicalSummaryResponse(BaseModel):
         ...,
         description="Metadata on the LLM provider and model execution",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_llm_fields(cls, data: Any) -> Any:
+        """Defensively normalize and coerce LLM output dictionaries to handle minor model defects."""
+        if not isinstance(data, dict):
+            return data
+
+        # 1. Unwrap nested wrappers if the LLM placed output inside a sub-key
+        for wrapper_key in ("clinical_summary_response", "summary_response", "clinical_summary", "response", "output", "data"):
+            if wrapper_key in data and isinstance(data[wrapper_key], dict) and ("clinical_summary" in data[wrapper_key] or "summary" in data[wrapper_key]):
+                merged = {**data[wrapper_key], **{k: v for k, v in data.items() if k != wrapper_key}}
+                data = merged
+                break
+
+        # 2. Field aliases for clinical_summary (only when not explicitly provided)
+        if "clinical_summary" not in data or data.get("clinical_summary") is None:
+            for alias in ("summary", "narrative", "clinical_narrative", "overview", "clinical_overview", "text", "content", "patient_summary", "note"):
+                if data.get(alias) and isinstance(data[alias], str) and data[alias].strip():
+                    data["clinical_summary"] = data[alias].strip()
+                    break
+
+        # 2b. Clean serialized JSON artifacts if present in clinical_summary
+        if data.get("clinical_summary") and isinstance(data["clinical_summary"], str):
+            clean_str = data["clinical_summary"].strip()
+            if clean_str.startswith("{") and clean_str.endswith("}"):
+                try:
+                    parsed = json.loads(clean_str)
+                    clean_str = parsed.get("clinical_summary") or parsed.get("summary") or parsed.get("narrative") or clean_str
+                    data["clinical_summary"] = clean_str
+                except Exception:
+                    pass
+
+        # 2c. Clean XML tags, <untrusted_clinical_note>, and HTML tags from clinical_summary
+        if data.get("clinical_summary") and isinstance(data["clinical_summary"], str):
+            clean_str = data["clinical_summary"]
+            if "<untrusted_clinical_note" in clean_str or "</untrusted_clinical_note>" in clean_str:
+                clean_str = re.sub(r"</?untrusted_clinical_note[^>]*>", "", clean_str)
+            if "<br" in clean_str:
+                clean_str = re.sub(r"<br\s*/?>", "\n", clean_str)
+            if "<" in clean_str and ">" in clean_str:
+                clean_str = re.sub(r"<[^>]+>", "", clean_str)
+            clean_str = re.sub(r"^[<«‹\s]+", "", clean_str)
+            clean_str = re.sub(r"[>»›\s]+$", "", clean_str).strip()
+
+            # Clean raw ingestion header prefixes without fabricating clinical ward assignments
+            clean_str = re.sub(r"(?:Bed assignment id|Admission id|History id):\s*[\w\-]+[;,]?\s*", "", clean_str, flags=re.IGNORECASE).strip()
+
+            data["clinical_summary"] = clean_str
+
+        # 3. Field aliases for key_diagnoses
+        if not data.get("key_diagnoses"):
+            for alias in ("diagnoses", "conditions", "diagnosis_list", "key_conditions", "active_diagnoses"):
+                if isinstance(data.get(alias), list):
+                    data["key_diagnoses"] = [str(x) for x in data[alias]]
+                    break
+
+        # 4. Field aliases for flagged_anomalies
+        if not data.get("flagged_anomalies"):
+            for alias in ("anomalies", "abnormalities", "critical_findings", "abnormal_values", "alerts"):
+                if isinstance(data.get(alias), list):
+                    data["flagged_anomalies"] = [str(x) for x in data[alias]]
+                    break
+
+        # 5. Field aliases for chief_concern
+        if not data.get("chief_concern"):
+            for alias in ("chief_complaint", "presenting_complaint", "reason_for_visit", "complaint", "reason"):
+                if data.get(alias) and isinstance(data[alias], str):
+                    data["chief_concern"] = data[alias].strip()
+                    break
+
+        # 6. Ensure default disclaimer is populated if absent
+        if not data.get("disclaimer"):
+            data["disclaimer"] = DEFAULT_CLINICAL_DISCLAIMER
+
+        return data
 
     @field_validator("clinical_summary")
     @classmethod

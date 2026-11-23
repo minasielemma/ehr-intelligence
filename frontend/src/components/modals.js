@@ -214,7 +214,7 @@ export async function openFhirReportModal(bundleId) {
     const issuesContainer = document.getElementById("fhir-report-issues-container");
 
     titleEl.textContent = `FHIR Conformance Report: ${bundleId}`;
-    summaryCardsEl.innerHTML = `<div class="col-span-4 p-4 text-center text-slate-400">Loading validation report...</div>`;
+    summaryCardsEl.innerHTML = `<div class="col-span-2 sm:col-span-4 p-4 text-center text-slate-400">Loading validation report...</div>`;
     issuesContainer.innerHTML = "";
 
     try {
@@ -269,7 +269,7 @@ export async function openFhirReportModal(bundleId) {
             }).join("");
         }
     } catch (err) {
-        summaryCardsEl.innerHTML = `<div class="col-span-4 p-4 text-center text-rose-600 text-xs">Error: ${escapeHtml(err.message)}</div>`;
+        summaryCardsEl.innerHTML = `<div class="col-span-2 sm:col-span-4 p-4 text-center text-rose-600 text-xs">Failed to load validation report: ${escapeHtml(err.message || "Unavailable")}</div>`;
     }
 }
 
@@ -366,7 +366,7 @@ export async function openJobReportModal(jobId) {
             </div>
         `;
     } catch (err) {
-        contentEl.innerHTML = `<div class="p-8 text-center text-xs text-rose-600">Failed to load audit report: ${escapeHtml(err.message)}</div>`;
+        contentEl.innerHTML = `<div class="p-8 text-center text-xs text-rose-600">Failed to load audit report: ${escapeHtml(err.message || "Unavailable")}</div>`;
     }
 }
 

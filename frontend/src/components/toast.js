@@ -12,15 +12,40 @@ function ensureToastContainer() {
         if (!toastContainer) {
             toastContainer = document.createElement("div");
             toastContainer.id = "toast-container";
-            toastContainer.className = "fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm w-full";
+            toastContainer.className = "fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-96 z-50 flex flex-col space-y-2 pointer-events-none";
             document.body.appendChild(toastContainer);
         }
     }
     return toastContainer;
 }
 
-export function showToast(type = "info", title = "", message = "", durationMs = 4500) {
+export function showToast(type = "info", title = "", message = "", durationMs = 5000) {
     const container = ensureToastContainer();
+
+    let displayMsg = message;
+    if (displayMsg instanceof Error) {
+        displayMsg = displayMsg.message;
+    } else if (typeof displayMsg === "object" && displayMsg !== null) {
+        if (typeof displayMsg.error_message === "string" && displayMsg.error_message.trim()) {
+            displayMsg = displayMsg.error_message.trim();
+        } else if (typeof displayMsg.message === "string" && displayMsg.message.trim()) {
+            displayMsg = displayMsg.message.trim();
+        } else if (Array.isArray(displayMsg.detail)) {
+            displayMsg = displayMsg.detail.map(d => {
+                if (typeof d === "string") return d;
+                const loc = Array.isArray(d.loc) ? d.loc.filter(l => l !== "body").join(".") : "";
+                const msg = d.msg || d.message || JSON.stringify(d);
+                return loc ? `${loc}: ${msg}` : msg;
+            }).join("; ");
+        } else if (typeof displayMsg.detail === "string" && displayMsg.detail.trim()) {
+            displayMsg = displayMsg.detail.trim();
+        } else if (Array.isArray(displayMsg)) {
+            displayMsg = displayMsg.map(d => (typeof d === "string" ? d : (d.msg || d.message || JSON.stringify(d)))).join("; ");
+        } else {
+            displayMsg = JSON.stringify(displayMsg);
+        }
+    }
+    displayMsg = String(displayMsg || "");
 
     const toast = document.createElement("div");
     toast.className = "pointer-events-auto flex items-start space-x-3 p-4 rounded-xl border shadow-lg bg-white transition-all transform duration-300 opacity-0 translate-y-2";
@@ -51,7 +76,7 @@ export function showToast(type = "info", title = "", message = "", durationMs = 
         </div>
         <div class="flex-1 min-w-0">
             ${title ? `<h4 class="text-xs font-bold text-slate-800">${escapeHtml(title)}</h4>` : ""}
-            <p class="text-xs text-slate-600 mt-0.5 leading-relaxed break-words">${escapeHtml(message)}</p>
+            <p class="text-xs text-slate-600 mt-0.5 leading-relaxed break-words">${escapeHtml(displayMsg)}</p>
         </div>
         <button class="text-slate-400 hover:text-slate-600 p-1 rounded-md text-xs" onclick="this.parentElement.remove()">
             &times;
@@ -66,12 +91,14 @@ export function showToast(type = "info", title = "", message = "", durationMs = 
         toast.classList.add("opacity-100", "translate-y-0");
     });
 
+    const activeDuration = type === "error" ? Math.max(durationMs, 7500) : durationMs;
+
     // Auto remove
-    if (durationMs > 0) {
+    if (activeDuration > 0) {
         setTimeout(() => {
             toast.classList.remove("opacity-100", "translate-y-0");
             toast.classList.add("opacity-0", "translate-y-2");
             setTimeout(() => toast.remove(), 300);
-        }, durationMs);
+        }, activeDuration);
     }
 }

@@ -188,3 +188,49 @@ async def test_summary_task_persists_in_database_across_restarts(
     assert status_data["status"] in ("PENDING", "PROCESSING", "COMPLETED", "FAILED")
     if status_data["status"] == "FAILED":
         assert "fhir" in status_data["error_message"].lower() or "bundle" in status_data["error_message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_get_patient_summary_read_only_no_db_mutation(
+    async_client: AsyncClient, test_settings
+) -> None:
+    """Verify GET /api/v1/ai/summarize/patient/{id} returns summary without mutating database."""
+    session_factory = get_session_factory(test_settings.sqlite_url)
+    async with session_factory() as session:
+        pat = PatientModel(
+            id="pat-readonly-01",
+            source_system="ehr_main",
+            mrn="MRN-RO-01",
+            first_name="Readonly",
+            last_name="Patient",
+        )
+        session.add(pat)
+
+        summary_model = ClinicalSummaryModel(
+            id="sum-ro-01",
+            patient_id="pat-readonly-01",
+            cache_key="cache-ro-01",
+            bundle_hash="hash-ro-01",
+            provider="ollama",
+            model_name="clinical-llm",
+            clinical_summary_text="Legacy narrative format without extra fields.",
+            summary_json={
+                "patient_id": "pat-readonly-01",
+                "clinical_summary": "Legacy narrative format without extra fields.",
+                "confidence": {"level": "moderate", "explanation": "Inferred from medical documentation."},
+                "model_metadata": {"provider": "ollama", "model": "clinical-llm"},
+            },
+        )
+        session.add(summary_model)
+        await session.commit()
+
+    # Query GET endpoint
+    response = await async_client.get(
+        "/api/v1/ai/summary/pat-readonly-01",
+        headers={"X-API-Key": "dev-test-key"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["patient_id"] == "pat-readonly-01"
+    assert "Legacy narrative" in data["clinical_summary"]
+

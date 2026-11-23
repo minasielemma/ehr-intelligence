@@ -256,7 +256,12 @@ class FHIRNormalizationService:
         """Fetch a reconciled patient and all longitudinal records from the database and normalize to FHIR."""
         patient = await self.patient_repo.get_by_id(patient_id)
         if not patient:
+            p_stmt = select(PatientModel).where(PatientModel.mrn == patient_id)
+            patient = (await self.session.execute(p_stmt)).scalars().first()
+        if not patient:
             raise AppException(f"Patient with ID '{patient_id}' not found", status_code=404)
+
+        patient_id = patient.id
 
         cr_stmt = select(ClinicalRecordModel).where(ClinicalRecordModel.patient_id == patient_id)
         records = list((await self.session.execute(cr_stmt)).scalars().all())

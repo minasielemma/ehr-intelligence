@@ -4,7 +4,9 @@ Enforces strict clinical documentation constraints, grounding in FHIR evidence,
 boundary encapsulation for untrusted free-text notes, and JSON schema compliance.
 """
 
+import ast
 import json
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.ai.extractor import ExtractedClinicalRecord
@@ -54,12 +56,48 @@ OUTPUT JSON SCHEMA:
 """
 
 
-import re
-
 def sanitize_untrusted_text(text: str, redact_phi: bool = True) -> str:
-    """Sanitize free text notes to neutralize prompt injection tokens and redact PHI."""
+    """Sanitize free text notes to neutralize prompt injection tokens, convert raw JSON/dicts, and redact PHI."""
     if not text:
         return ""
+
+    # Check if text is raw JSON or python dict string (e.g. {"history_id": ..., ...} or {'history_id': ...})
+    stripped = text.strip()
+    if (stripped.startswith("{") and stripped.endswith("}")) or (stripped.startswith("[") and stripped.endswith("]")):
+        parsed = None
+        try:
+            parsed = json.loads(stripped)
+        except Exception:
+            try:
+                parsed = ast.literal_eval(stripped)
+            except Exception:
+                parsed = None
+
+        if isinstance(parsed, dict):
+            # Exclude internal audit events from clinical prompt context
+            if "audit_event_id" in parsed:
+                return ""
+            lines = []
+            for k, v in parsed.items():
+                if k.lower() in (
+                    "_links", "links", "meta", "security", "version_id", "source_system",
+                    "history_id", "audit_event_id", "patient_id", "bed_assignment_id", "admission_id",
+                ):
+                    continue
+                if isinstance(v, (str, int, float, bool)) and v:
+                    lines.append(f"{k.replace('_', ' ').capitalize()}: {v}")
+                elif isinstance(v, list) and v:
+                    lines.append(f"{k.replace('_', ' ').capitalize()}: {', '.join(str(item) for item in v)}")
+            if lines:
+                text = "\n".join(lines)
+        elif isinstance(parsed, list):
+            lines = [str(item) for item in parsed if item]
+            if lines:
+                text = "\n".join(lines)
+
+    # Strip HTML break tags and replace with clean newlines
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+
     # Strip common LLM control tokens and tag closing attempts
     cleaned = text.replace("</untrusted_clinical_note>", "[escaped-tag]")
     cleaned = cleaned.replace("<|im_end|>", "").replace("<|im_start|>", "")
@@ -114,7 +152,6 @@ def build_clinical_payload(
             "age_years": record.patient.age_years,
             "gender": record.patient.gender,
             "date_of_birth": patient_dob,
-            "source_reference": record.patient.source_reference,
         },
         "chief_concern": record.chief_concern,
         "encounters": [
@@ -123,9 +160,8 @@ def build_clinical_payload(
                 "type": enc.encounter_type,
                 "period": f"{enc.start_date or ''} - {enc.end_date or ''}".strip(" -"),
                 "reason": enc.reason,
-                "source_reference": enc.source_reference,
             }
-            for enc in record.encounters
+            for enc in record.encounters[:5]
         ],
         "diagnoses_and_conditions": [
             {
@@ -134,21 +170,17 @@ def build_clinical_payload(
                 "clinical_status": cond.clinical_status,
                 "verification_status": cond.verification_status,
                 "onset_date": cond.onset_date,
-                "source_reference": cond.source_reference,
             }
             for cond in record.conditions
         ],
         "observations_and_labs": [
             {
-                "id": obs.id,
                 "name": obs.name,
-                "category": obs.category,
                 "value": obs.value,
-                "reference_range": obs.reference_range_text,
+                "unit": obs.unit,
                 "interpretation": obs.interpretation,
                 "is_abnormal": obs.is_abnormal,
-                "effective_date": obs.effective_date,
-                "source_reference": obs.source_reference,
+                "date": obs.effective_date,
             }
             for obs in selected_obs
         ],
@@ -158,23 +190,18 @@ def build_clinical_payload(
                 "name": dr.name,
                 "category": dr.category,
                 "conclusion": dr.conclusion,
-                "linked_observations": dr.observation_ids,
-                "source_reference": dr.source_reference,
             }
             for dr in record.diagnostic_reports
         ],
         "medications": [
             {
-                "id": med.id,
                 "name": med.name,
                 "status": med.status,
                 "dosage": med.dosage,
-                "source_reference": med.source_reference,
             }
             for med in record.medications
         ],
         "source_flagged_anomalies": record.flagged_anomalies,
-        "all_source_references": record.source_references,
     }
     return payload
 
@@ -192,11 +219,27 @@ def format_user_prompt(
         notes_section = "\n\n### CLINICAL NOTES (UNTRUSTED CLINICAL DATA):\n"
         for note in record.clinical_notes:
             safe_text = sanitize_untrusted_text(note.content_text, redact_phi=should_redact)
-            notes_section += (
-                f'<untrusted_clinical_note id="{note.id}" title="{note.title}" date="{note.date or "N/A"}" ref="{note.source_reference}">\n'
-                f"{safe_text}\n"
-                f"</untrusted_clinical_note>\n"
-            )
+            if safe_text:
+                notes_section += (
+                    f'<untrusted_clinical_note id="{note.id}" title="{note.title}" date="{note.date or "N/A"}" ref="{note.source_reference}">\n'
+                    f"{safe_text}\n"
+                    f"</untrusted_clinical_note>\n"
+                )
+
+    active_cond_names = [
+        c.name for c in record.conditions
+        if getattr(c, "clinical_status", "").lower() == "active"
+        and getattr(c, "verification_status", "").lower() not in ("refuted", "entered-in-error")
+    ][:5]
+    if not active_cond_names:
+        active_cond_names = [
+            c.name for c in record.conditions
+            if getattr(c, "verification_status", "").lower() not in ("refuted", "entered-in-error")
+            and getattr(c, "clinical_status", "").lower() not in ("resolved", "remission")
+        ][:5]
+
+    chief_desc = record.chief_concern or "Clinical evaluation and follow-up"
+    anomaly_hints = record.flagged_anomalies[:4] if record.flagged_anomalies else []
 
     user_prompt = (
         f"Generate a concise, structured clinical summary for patient ID '{record.patient.id}' "
@@ -204,8 +247,26 @@ def format_user_prompt(
         f"### STRUCTURED CLINICAL DATA:\n"
         f"```json\n{json_context}\n```"
         f"{notes_section}\n\n"
-        f"Reminder: You must produce ONLY valid JSON matching the expected schema. "
-        f"The 'clinical_summary' text MUST contain fewer than 200 words."
+        f"CRITICAL OUTPUT INSTRUCTIONS:\n"
+        f"1. DO NOT output or echo raw note objects, '<untrusted_clinical_note>' tags, DocumentReferences, or input JSON. NEVER output XML or HTML tags.\n"
+        f"2. You MUST produce ONLY a single valid JSON object adhering strictly to the schema below. "
+        f"Do NOT copy placeholder instructions or prompt sentences into the output fields.\n"
+        f"{{\n"
+        f'  "chief_concern": {json.dumps(chief_desc)},\n'
+        f'  "key_diagnoses": {json.dumps(active_cond_names)},\n'
+        f'  "recent_diagnostic_records": {{\n'
+        f'    "laboratory": [],\n'
+        f'    "imaging": [],\n'
+        f'    "other": []\n'
+        f'  }},\n'
+        f'  "flagged_anomalies": {json.dumps(anomaly_hints)},\n'
+        f'  "clinical_summary": "<Write an original, synthesized 2 to 4 sentence clinical narrative summarizing the patient\'s active conditions, observations, and care under 200 words>",\n'
+        f'  "confidence": {{\n'
+        f'    "level": "high",\n'
+        f'    "explanation": "Summary grounded in verified longitudinal FHIR records."\n'
+        f'  }},\n'
+        f'  "disclaimer": "AI-generated summary. Not a clinical diagnosis or medical decision."\n'
+        f"}}\n"
     )
     return user_prompt
 

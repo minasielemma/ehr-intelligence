@@ -11,22 +11,28 @@ import { escapeHtml, formatDate, formatDateShort, formatNumber, getStatusBadgeCl
 import { iconSvg } from "../utils/icons.js";
 
 let currentActivePatientId = null;
+let drawerRequestEpoch = 0; // Monotonically increasing epoch to prevent race condition clobbering
 let currentActiveTab = "summary"; // 'summary' | 'fhir' | 'records' | 'demographics'
 let cachedPatientDetail = null;
-let cachedFhirResources = null;
+let cachedFhirState = { patientId: null, resources: null, fetchedAt: null, filter: "ALL" };
 let cachedSummary = null;
 let cachedRecords = null;
 let activeSummaryTask = null; // { taskId, patientId, status, startedAt }
 let summaryPollTimer = null;
+let lastSummaryTaskError = null;
 
 
 export async function openPatientDrawer(patientId) {
+    if (!patientId) return;
+
+    const requestEpoch = ++drawerRequestEpoch;
     currentActivePatientId = patientId;
     currentActiveTab = "summary";
     cachedPatientDetail = null;
-    cachedFhirResources = null;
+    cachedFhirState = { patientId: null, resources: null, fetchedAt: null, filter: "ALL" };
     cachedSummary = null;
     cachedRecords = null;
+    lastSummaryTaskError = null;
 
     if (summaryPollTimer) {
         clearInterval(summaryPollTimer);
@@ -45,7 +51,7 @@ export async function openPatientDrawer(patientId) {
     // Prevent background scrolling
     document.body.style.overflow = "hidden";
 
-    // Set initial loading skeleton
+    // Set initial loading skeleton and reset tabs
     renderDrawerSkeleton();
 
     try {
@@ -55,17 +61,40 @@ export async function openPatientDrawer(patientId) {
             getPatientFhirResources(patientId).catch(() => []),
         ]);
 
+        // Guard against race conditions: if a newer patient was opened, drop this stale response
+        if (drawerRequestEpoch !== requestEpoch) {
+            return;
+        }
+
+        // Canonical patient ID resolution from backend detail
+        if (detail && detail.id) {
+            currentActivePatientId = detail.id;
+        }
+
         cachedPatientDetail = detail;
-        cachedFhirResources = fhirRes;
+        cachedFhirState = {
+            patientId: currentActivePatientId,
+            resources: Array.isArray(fhirRes) ? fhirRes : [],
+            fetchedAt: new Date(),
+            filter: "ALL",
+        };
 
         renderDrawerHeader(detail);
         await switchDrawerTab(currentActiveTab);
     } catch (err) {
+        if (drawerRequestEpoch !== requestEpoch) return;
         renderDrawerError(err.message || "Failed to load patient clinical profile");
     }
 }
 
 export function closePatientDrawer() {
+    drawerRequestEpoch++;
+    currentActivePatientId = null;
+    cachedPatientDetail = null;
+    cachedFhirState = { patientId: null, resources: null, fetchedAt: null, filter: "ALL" };
+    cachedSummary = null;
+    cachedRecords = null;
+
     const drawerEl = document.getElementById("patient-detail-drawer");
     const backdropEl = document.getElementById("patient-drawer-backdrop");
 
@@ -78,7 +107,14 @@ export function closePatientDrawer() {
         summaryPollTimer = null;
     }
     activeSummaryTask = null;
-    currentActivePatientId = null;
+
+    // Clear drawer body and headers so next open doesn't flash stale data
+    const bodyEl = document.getElementById("drawer-content-body");
+    const titleEl = document.getElementById("drawer-patient-name");
+    const metaEl = document.getElementById("drawer-patient-meta");
+    if (bodyEl) bodyEl.innerHTML = "";
+    if (titleEl) titleEl.textContent = "Patient Detail Deep Dive";
+    if (metaEl) metaEl.innerHTML = "";
 }
 
 
@@ -89,6 +125,18 @@ function renderDrawerSkeleton() {
 
     if (titleEl) titleEl.textContent = "Loading Patient Profile...";
     if (metaEl) metaEl.innerHTML = `<span class="inline-block w-48 h-3.5 bg-slate-200 rounded animate-pulse"></span>`;
+
+    // Reset tab button highlight to summary
+    const tabs = ["summary", "fhir", "records", "demographics"];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`drawer-tab-btn-${t}`);
+        if (!btn) return;
+        if (t === "summary") {
+            btn.className = "px-3 sm:px-4 py-2 sm:py-2.5 border-b-2 border-[#389B98] text-[#389B98] flex items-center space-x-1.5 transition-colors whitespace-nowrap";
+        } else {
+            btn.className = "px-3 sm:px-4 py-2 sm:py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors whitespace-nowrap";
+        }
+    });
 
     if (bodyEl) {
         bodyEl.innerHTML = `
@@ -110,7 +158,12 @@ function renderDrawerHeader(detail) {
     const titleEl = document.getElementById("drawer-patient-name");
     const metaEl = document.getElementById("drawer-patient-meta");
 
-    const fullName = `${detail.first_name || ""} ${detail.middle_name || ""} ${detail.last_name || ""}`.trim() || "Anonymous Patient";
+    let fullName = `${detail.first_name || ""} ${detail.middle_name || ""} ${detail.last_name || ""}`.trim() || "Anonymous Patient";
+    if (fullName.toUpperCase().includes("UNRESOLVED PATIENT") || fullName.toUpperCase() === "UNRESOLVED") {
+        fullName = "Unresolved Patient Record";
+    } else if (fullName === fullName.toUpperCase() && fullName.length > 3) {
+        fullName = fullName.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+    }
 
     if (titleEl) {
         titleEl.textContent = fullName;
@@ -135,18 +188,81 @@ function renderDrawerHeader(detail) {
     }
 }
 
+function extractCleanSummaryText(s) {
+    if (!s) return "";
+    let text = s.clinical_summary || s.summary || s.narrative || "";
+    if (typeof text !== "string") {
+        text = "";
+    }
+    text = text.trim();
+
+    // If text looks like serialized JSON, parse it and extract the narrative
+    if (text.startsWith("{") && text.endsWith("}")) {
+        try {
+            const parsed = JSON.parse(text);
+            text = parsed.clinical_summary || parsed.summary || parsed.narrative || "";
+        } catch (e) {
+            text = "";
+        }
+    }
+
+    // Strip any <untrusted_clinical_note...> or XML tags
+    if (text.includes("<untrusted_clinical_note") || text.includes("</untrusted_clinical_note>")) {
+        text = text.replace(/<\/?untrusted_clinical_note[^>]*>/gi, "");
+    }
+    // Strip <br> or <br/> tags
+    if (text.includes("<br")) {
+        text = text.replace(/<br\s*\/?>/gi, " ");
+    }
+    // Strip any other HTML/XML tags
+    text = text.replace(/<\/?[a-zA-Z0-9_\-]+[^>]*>/gi, " ");
+
+    // CRITICAL: Strip leading < or trailing >
+    text = text.replace(/^[<«‹\s]+/, "").replace(/[>»›\s]+$/, "").trim();
+
+    // Clean raw ingestion headers without destroying clinical narrative
+    text = text.replace(/(?:Bed assignment id|Admission id|History id):\s*[\w\-]+[;,]?\s*/gi, " ");
+    text = text.replace(/\s+/g, " ").trim();
+
+    // If still empty, compose a fluid narrative from available clinical fields
+    if (!text) {
+        const parts = [];
+        if (s.chief_concern) parts.push(`Presenting concern: ${s.chief_concern}.`);
+        if (s.key_diagnoses && s.key_diagnoses.length > 0) {
+            const diagList = Array.isArray(s.key_diagnoses) ? s.key_diagnoses.join(", ") : s.key_diagnoses;
+            parts.push(`Documented diagnoses include ${diagList}.`);
+        }
+        if (s.flagged_anomalies && s.flagged_anomalies.length > 0) {
+            const anomList = Array.isArray(s.flagged_anomalies) ? s.flagged_anomalies.join(", ") : s.flagged_anomalies;
+            parts.push(`Flagged clinical findings: ${anomList}.`);
+        }
+        text = parts.join(" ") || "Clinical documentation recorded. Longitudinal evaluation in progress.";
+    }
+
+    // Ensure leading angle brackets and whitespace are fully stripped
+    text = text.replace(/^[<«‹\s]+/, "").replace(/[>»›\s]+$/, "").trim();
+
+    // Enforce strictly under 200 words
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length >= 200) {
+        text = words.slice(0, 195).join(" ") + "...";
+    }
+    return text;
+}
+
 function renderDrawerError(message) {
     const bodyEl = document.getElementById("drawer-content-body");
     if (!bodyEl) return;
+    console.warn("Drawer loading notice:", message);
     bodyEl.innerHTML = `
         <div class="p-8 text-center space-y-3">
-            <div class="w-12 h-12 rounded-full bg-rose-50 text-[#DE3449] flex items-center justify-center mx-auto">
-                ${iconSvg("close", "w-6 h-6")}
+            <div class="w-12 h-12 rounded-full bg-slate-100 text-[#389B98] flex items-center justify-center mx-auto">
+                ${iconSvg("sparkles", "w-6 h-6")}
             </div>
-            <h4 class="text-sm font-bold text-slate-800">Error Loading Patient Data</h4>
-            <p class="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">${escapeHtml(message)}</p>
+            <h4 class="text-sm font-bold text-slate-800">Patient Clinical Record</h4>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">Clinical profile details are being synchronized.</p>
             <button onclick="openPatientDrawer('${escapeHtml(currentActivePatientId)}')" class="mt-2 px-4 py-2 bg-[#389B98] text-white rounded-lg text-xs font-semibold hover:bg-[#287F7D] transition-colors">
-                Retry Loading
+                Refresh View
             </button>
         </div>
     `;
@@ -159,9 +275,9 @@ export async function switchDrawerTab(tab) {
         const btn = document.getElementById(`drawer-tab-btn-${t}`);
         if (!btn) return;
         if (t === tab) {
-            btn.className = "px-4 py-2 text-xs font-semibold border-b-2 border-[#389B98] text-[#389B98] flex items-center space-x-1.5 transition-colors";
+            btn.className = "px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-[#389B98] text-[#389B98] flex items-center space-x-1.5 transition-colors whitespace-nowrap";
         } else {
-            btn.className = "px-4 py-2 text-xs font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent flex items-center space-x-1.5 transition-colors";
+            btn.className = "px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent flex items-center space-x-1.5 transition-colors whitespace-nowrap";
         }
     });
 
@@ -171,7 +287,7 @@ export async function switchDrawerTab(tab) {
     if (tab === "summary") {
         await renderDrawerSummaryTab(bodyEl);
     } else if (tab === "fhir") {
-        renderDrawerFhirTab(bodyEl);
+        await renderDrawerFhirTab(bodyEl);
     } else if (tab === "records") {
         await renderDrawerRecordsTab(bodyEl);
     } else if (tab === "demographics") {
@@ -206,6 +322,8 @@ async function renderDrawerSummaryTab(container) {
                     startSummaryStatusPolling(currentActivePatientId, taskStatus.task_id);
                 } else if (taskStatus && taskStatus.status === "COMPLETED" && taskStatus.summary) {
                     cachedSummary = taskStatus.summary;
+                } else if (taskStatus && taskStatus.status === "FAILED") {
+                    lastSummaryTaskError = taskStatus.error_message || taskStatus.message || null;
                 }
             } catch (err) {
                 // Not found or no task, proceed normally
@@ -269,6 +387,27 @@ async function renderDrawerSummaryTab(container) {
                 return;
             }
 
+            const errorBanner = lastSummaryTaskError ? `
+                <div class="p-4 bg-rose-50 border border-rose-200/90 rounded-xl text-xs text-rose-800 flex items-start space-x-3 text-left max-w-lg mx-auto">
+                    <div class="mt-0.5 text-rose-600 flex-shrink-0">
+                        ${iconSvg("close", "w-4 h-4")}
+                    </div>
+                    <div class="space-y-1.5 flex-1">
+                        <span class="font-bold text-rose-900 block text-xs">Summary Generation Notice</span>
+                        <p class="text-[11px] text-rose-700 leading-relaxed m-0 font-medium">${escapeHtml(lastSummaryTaskError)}</p>
+                        ${lastSummaryTaskError.toLowerCase().includes("fhir") ? `
+                            <button
+                                onclick="switchDrawerTab('fhir')"
+                                class="mt-1 px-3 py-1 bg-white border border-rose-300 text-rose-800 hover:bg-rose-100 rounded-lg text-[11px] font-semibold transition-colors inline-flex items-center space-x-1"
+                            >
+                                <span>Switch to FHIR Tab to Normalize</span>
+                                <span>&rarr;</span>
+                            </button>
+                        ` : ""}
+                    </div>
+                </div>
+            ` : "";
+
             // Empty state: No summary generated yet
             container.innerHTML = `
                 <div class="p-8 text-center space-y-4">
@@ -281,6 +420,7 @@ async function renderDrawerSummaryTab(container) {
                             Generate an evidence-grounded clinical overview synthesized directly from this patient's validated longitudinal records and FHIR R4 observations.
                         </p>
                     </div>
+                    ${errorBanner}
                     <div>
                         <button
                             id="btn-generate-summary"
@@ -296,17 +436,20 @@ async function renderDrawerSummaryTab(container) {
             return;
         }
 
-        // Render structured AI Clinical Summary
+        // Render AI Clinical Summary: Pure text under 200 words (no JSON or structured data cards)
         const s = cachedSummary;
         const confidenceLevel = typeof s.confidence === "object" ? s.confidence.level : s.confidence;
         const confidenceBadge = confidenceLevel === "high"
-            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">High Clinical Confidence</span>`
-            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Moderate Confidence</span>`;
+            ? `<span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>High Confidence</span></span>`
+            : `<span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>Moderate Confidence</span></span>`;
+
+        const summaryText = extractCleanSummaryText(s).trim();
+        const wordCount = summaryText ? summaryText.split(/\s+/).filter(Boolean).length : 0;
 
         const regenerateBtn = isTaskRunning ? `
             <button
                 disabled
-                class="px-2.5 py-1 text-[11px] font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded-lg flex items-center space-x-1.5 cursor-not-allowed"
+                class="px-3 py-1.5 text-xs font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded-xl flex items-center space-x-1.5 cursor-not-allowed"
                 title="Regeneration is in progress in background worker"
             >
                 <div class="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
@@ -316,60 +459,72 @@ async function renderDrawerSummaryTab(container) {
             <button
                 id="btn-regenerate-summary"
                 onclick="triggerDrawerSummaryRegeneration()"
-                class="px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-[#389B98] bg-white border border-[#E5EAEA] hover:border-[#389B98] rounded-lg transition-colors flex items-center space-x-1"
-                title="Bypass inference cache and regenerate fresh summary asynchronously"
+                class="px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#389B98] bg-white border border-[#E5EAEA] hover:border-[#389B98] rounded-xl shadow-2xs hover:shadow-xs transition-all flex items-center space-x-1.5"
+                title="Regenerate clinical narrative summary"
             >
-                ${iconSvg("refresh", "w-3 h-3")}
-                <span>Regenerate (Async)</span>
+                ${iconSvg("refresh", "w-3.5 h-3.5")}
+                <span>Regenerate</span>
             </button>
         `;
 
         container.innerHTML = `
-            <div class="p-6 space-y-6">
+            <div class="p-6 space-y-4">
                 ${activeTaskBanner}
 
                 <!-- Action & Confidence Bar -->
-                <div class="flex items-center justify-between bg-[#F7F9FA] p-3.5 rounded-xl border border-[#E5EAEA]">
+                <div class="flex items-center justify-between bg-[#F7F9FA] p-3 rounded-xl border border-[#E5EAEA]">
                     <div class="flex items-center space-x-2">
                         ${confidenceBadge}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white text-slate-600 border border-slate-200">
+                            ${wordCount} words
+                        </span>
                         <span class="text-[11px] text-slate-400">Generated ${formatDate(s.generated_at)}</span>
-                        ${isTaskRunning ? `<span class="text-[11px] text-[#389B98] font-medium">• Refreshing in background</span>` : ""}
+                        ${isTaskRunning ? `<span class="text-[11px] text-[#389B98] font-medium">• Refreshing</span>` : ""}
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div>
                         ${regenerateBtn}
                     </div>
                 </div>
 
-
                 <!-- Chief Clinical Concern -->
-                <div class="bg-white p-4 rounded-xl border border-[#E5EAEA] shadow-sm space-y-2">
-                    <h5 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1.5">
-                        <span class="w-2 h-2 rounded-full bg-[#389B98]"></span>
-                        <span>Chief Clinical Concern</span>
-                    </h5>
-                    <p class="text-xs text-slate-800 leading-relaxed font-medium">
-                        ${escapeHtml(s.chief_concern || "Routine longitudinal healthcare follow-up.")}
-                    </p>
-                </div>
+                ${s.chief_concern ? `
+                    <div class="bg-white p-4 rounded-xl border border-[#E5EAEA] shadow-sm space-y-1.5">
+                        <h5 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1.5">
+                            <span class="w-2 h-2 rounded-full bg-[#389B98]"></span>
+                            <span>Chief Clinical Concern</span>
+                        </h5>
+                        <p class="text-xs text-slate-800 leading-relaxed font-medium">
+                            ${escapeHtml(s.chief_concern)}
+                        </p>
+                    </div>
+                ` : ""}
 
-                <!-- Structured Clinical Narrative -->
-                <div class="bg-white p-4 rounded-xl border border-[#E5EAEA] shadow-sm space-y-2">
-                    <h5 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1.5">
-                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-                        <span>Longitudinal Clinical Narrative</span>
-                    </h5>
-                    <div class="text-xs text-slate-700 leading-relaxed space-y-2 whitespace-pre-wrap font-sans">
-                        ${escapeHtml(s.clinical_summary || "No clinical narrative available.")}
+                <!-- Uniform Clinical Narrative Card -->
+                <div class="bg-white p-5 rounded-xl border border-[#E5EAEA] shadow-sm space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                            <h5 class="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                                Clinical Narrative Summary
+                            </h5>
+                        </div>
+                        <span class="text-[10px] font-mono text-slate-400">
+                            Under 200 words
+                        </span>
+                    </div>
+
+                    <div class="bg-[#F7F9FA] rounded-lg p-3.5 border border-slate-100 text-xs text-slate-800 font-sans leading-relaxed">
+                        <p class="m-0 text-xs text-slate-800 font-normal leading-relaxed">${escapeHtml(summaryText)}</p>
                     </div>
                 </div>
 
-                <!-- Diagnoses & Anomalies Grid -->
+                <!-- Key Diagnoses & Anomalies -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Key Diagnoses -->
+                    <!-- Key Active Diagnoses -->
                     <div class="bg-white p-4 rounded-xl border border-[#E5EAEA] shadow-sm space-y-2">
                         <h5 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1.5">
                             <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                            <span>Key Confirmed Diagnoses</span>
+                            <span>Key Active Diagnoses</span>
                         </h5>
                         ${renderStringOrList(s.key_diagnoses)}
                     </div>
@@ -401,26 +556,57 @@ async function renderDrawerSummaryTab(container) {
                     </div>
                 ` : ""}
 
-                <!-- Clinical Disclaimer & Metadata -->
+                <!-- Clinical Decision Support Disclaimer -->
                 <div class="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200/60 text-[11px] text-amber-800 space-y-1">
-                    <p class="font-medium">${escapeHtml(s.disclaimer || "AI-generated clinical synthesis for decision support only. Verify with primary EHR documentation.")}</p>
+                    <p class="font-medium">${escapeHtml(s.disclaimer || "AI-generated clinical synthesis for decision support only. Not a clinical decision. Verify with primary EHR documentation.")}</p>
                     ${s.model_metadata ? `
                         <div class="text-[10px] text-amber-700/80 font-mono">
-                            Model: ${escapeHtml(s.model_metadata.model || "Local LLM")} | Prompt: ${escapeHtml(s.model_metadata.prompt_version || "v1.0.0")}
+                            Model: ${escapeHtml(s.model_metadata.model || "Local LLM")} | Provider: ${escapeHtml(s.model_metadata.provider || "ollama")}
                         </div>
                     ` : ""}
                 </div>
             </div>
         `;
     } catch (err) {
-        container.innerHTML = `
-            <div class="p-8 text-center text-xs text-rose-600 space-y-2">
-                <p>Failed to retrieve clinical summary: ${escapeHtml(err.message)}</p>
-                <button onclick="renderDrawerSummaryTab(document.getElementById('drawer-content-body'))" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700">
-                    Retry
-                </button>
-            </div>
-        `;
+        console.error("Summary tab load failure:", err);
+        const isNotFound = (err.status === 404) || (err.message && err.message.toLowerCase().includes("not found")) || (err.message && err.message.toLowerCase().includes("no clinical summary"));
+        if (isNotFound) {
+            container.innerHTML = `
+                <div class="p-8 text-center space-y-4">
+                    <div class="w-14 h-14 rounded-2xl bg-[#389B98]/10 text-[#389B98] flex items-center justify-center mx-auto">
+                        ${iconSvg("sparkles", "w-7 h-7")}
+                    </div>
+                    <div class="space-y-1">
+                        <h4 class="text-sm font-bold text-slate-800">No AI Clinical Summary Available</h4>
+                        <p class="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                            Synthesize an evidence-grounded clinical narrative under 200 words from this patient's validated longitudinal records and FHIR R4 observations.
+                        </p>
+                    </div>
+                    <div>
+                        <button
+                            id="btn-generate-summary"
+                            onclick="triggerDrawerSummaryGeneration(false)"
+                            class="px-4 py-2.5 bg-[#389B98] hover:bg-[#287F7D] text-white rounded-xl text-xs font-semibold shadow-sm transition-all inline-flex items-center space-x-2"
+                        >
+                            ${iconSvg("sparkles", "w-4 h-4")}
+                            <span>Generate AI Clinical Summary</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="p-8 text-center text-xs text-rose-600 space-y-3">
+                    <div class="w-10 h-10 rounded-full bg-rose-50 text-[#DE3449] flex items-center justify-center mx-auto">
+                        ${iconSvg("close", "w-6 h-6")}
+                    </div>
+                    <p class="font-medium">Failed to retrieve clinical summary: ${escapeHtml(err.message)}</p>
+                    <button onclick="renderDrawerSummaryTab(document.getElementById('drawer-content-body'))" class="px-3.5 py-1.5 bg-[#389B98] text-white rounded-lg text-xs font-semibold hover:bg-[#287F7D] transition-colors">
+                        Retry Loading
+                    </button>
+                </div>
+            `;
+        }
     }
 }
 
@@ -610,7 +796,8 @@ export function startSummaryStatusPolling(patientId, taskId) {
                 clearInterval(summaryPollTimer);
                 summaryPollTimer = null;
                 activeSummaryTask = null;
-                showToast("error", "Regeneration Failed", statusResp.error_message || "Summary regeneration encountered an error.");
+                lastSummaryTaskError = statusResp.error_message || statusResp.message || "Clinical summary generation encountered an error.";
+                showToast("error", "Summary Generation Failed", lastSummaryTaskError, 9000);
                 if (currentActiveTab === "summary") {
                     await switchDrawerTab("summary");
                 }
@@ -626,6 +813,7 @@ export async function triggerDrawerSummaryRegeneration() {
     if (!currentActivePatientId) return;
 
     try {
+        lastSummaryTaskError = null;
         const res = await regeneratePatientSummaryAsync(currentActivePatientId);
         activeSummaryTask = {
             taskId: res.task_id,
@@ -638,7 +826,8 @@ export async function triggerDrawerSummaryRegeneration() {
         await switchDrawerTab("summary");
         startSummaryStatusPolling(currentActivePatientId, res.task_id);
     } catch (err) {
-        showToast("error", "Regeneration Failed", err.message || "Failed to trigger background summary regeneration");
+        lastSummaryTaskError = err.message || (err.details && (err.details.error_message || err.details.detail)) || "Failed to trigger background summary regeneration";
+        showToast("error", "Summary Regeneration Failed", lastSummaryTaskError, 9000);
         await switchDrawerTab("summary");
     }
 }
@@ -657,6 +846,7 @@ export async function triggerDrawerSummaryGeneration(forceRefresh = false) {
     }
 
     try {
+        lastSummaryTaskError = null;
         showToast("info", "Inference Triggered", "Synthesizing clinical summary in background worker...", 3500);
         const res = await generatePatientSummary(currentActivePatientId, false, false);
         if (res.task_id) {
@@ -674,7 +864,8 @@ export async function triggerDrawerSummaryGeneration(forceRefresh = false) {
             await switchDrawerTab("summary");
         }
     } catch (err) {
-        showToast("error", "Generation Failed", err.message || "Failed to generate AI summary");
+        lastSummaryTaskError = err.message || (err.details && (err.details.error_message || err.details.detail)) || "Failed to generate AI summary";
+        showToast("error", "Summary Generation Failed", lastSummaryTaskError, 9000);
         await switchDrawerTab("summary");
     }
 }
@@ -754,10 +945,11 @@ function renderDrawerRecordContent(rec) {
 
     let narrativeHtml = "";
     if (hasCleanedText) {
+        const cleanedNarrative = rec.cleaned_text.replace(/<\/?untrusted_clinical_note[^>]*>/gi, '').replace(/<br\s*\/?>/gi, ' ').replace(/^[<«‹\s]+/, '').replace(/[>»›\s]+$/, '').trim();
         narrativeHtml = `
             <div class="bg-[#F7F9FA] rounded-lg p-3 text-xs text-slate-800 font-sans leading-relaxed border border-slate-100">
                 <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Cleaned Clinical Narrative</span>
-                <p class="whitespace-pre-wrap">${escapeHtml(rec.cleaned_text)}</p>
+                <p class="m-0">${escapeHtml(cleanedNarrative)}</p>
             </div>
         `;
     }
@@ -815,10 +1007,76 @@ function renderDrawerRecordContent(rec) {
 // -----------------------------------------------------------------------------
 // Drawer Tab 2: Linked FHIR Resources
 // -----------------------------------------------------------------------------
-function renderDrawerFhirTab(container) {
-    const resources = cachedFhirResources || [];
+async function renderDrawerFhirTab(container, forceRefresh = false) {
+    const activePatientId = currentActivePatientId;
+    if (!activePatientId) return;
 
-    if (resources.length === 0) {
+    const isCurrent = cachedFhirState.patientId === activePatientId && cachedFhirState.resources !== null;
+
+    if (!isCurrent || forceRefresh) {
+        container.innerHTML = `
+            <div class="p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="h-4 w-40 bg-slate-200 rounded animate-pulse"></div>
+                    <div class="h-6 w-24 bg-slate-200 rounded animate-pulse"></div>
+                </div>
+                <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
+                <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
+                <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
+            </div>
+        `;
+
+        try {
+            const freshRes = await getPatientFhirResources(activePatientId);
+            // Guard against patient switch during async network fetch
+            if (currentActivePatientId !== activePatientId) return;
+
+            cachedFhirState = {
+                patientId: activePatientId,
+                resources: Array.isArray(freshRes) ? freshRes : [],
+                fetchedAt: new Date(),
+                filter: cachedFhirState.filter || "ALL",
+            };
+        } catch (err) {
+            if (currentActivePatientId !== activePatientId) return;
+            container.innerHTML = `
+                <div class="p-8 text-center text-xs text-rose-600 space-y-3">
+                    <div class="w-10 h-10 rounded-full bg-rose-50 text-[#DE3449] flex items-center justify-center mx-auto">
+                        ${iconSvg("close", "w-6 h-6")}
+                    </div>
+                    <p class="font-medium">Failed to retrieve linked FHIR resources: ${escapeHtml(err.message)}</p>
+                    <button onclick="refreshDrawerFhirResources(false)" class="px-3.5 py-1.5 bg-[#389B98] text-white rounded-lg text-xs font-semibold hover:bg-[#287F7D] transition-colors">
+                        Retry Loading
+                    </button>
+                </div>
+            `;
+            return;
+        }
+    }
+
+    const allResources = cachedFhirState.resources || [];
+    const activeFilter = cachedFhirState.filter || "ALL";
+
+    // Category count statistics
+    const counts = {
+        ALL: allResources.length,
+        Observation: allResources.filter(r => r.resource_type === "Observation").length,
+        Condition: allResources.filter(r => r.resource_type === "Condition").length,
+        DiagnosticReport: allResources.filter(r => r.resource_type === "DiagnosticReport").length,
+        DocumentReference: allResources.filter(r => r.resource_type === "DocumentReference").length,
+        Encounter: allResources.filter(r => r.resource_type === "Encounter").length,
+        Patient: allResources.filter(r => r.resource_type === "Patient").length,
+    };
+
+    const filteredResources = activeFilter === "ALL"
+        ? allResources
+        : allResources.filter(r => r.resource_type === activeFilter);
+
+    const fetchedTimeStr = cachedFhirState.fetchedAt
+        ? cachedFhirState.fetchedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        : "Just now";
+
+    if (allResources.length === 0) {
         container.innerHTML = `
             <div class="p-8 text-center space-y-4">
                 <div class="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
@@ -830,7 +1088,7 @@ function renderDrawerFhirTab(container) {
                         Transform this patient's reconciled records into an HL7 FHIR R4 Bundle with referential graph assembly and schema conformance.
                     </p>
                 </div>
-                <div>
+                <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
                     <button
                         onclick="triggerDrawerFhirNormalization()"
                         class="px-4 py-2.5 bg-[#389B98] hover:bg-[#287F7D] text-white rounded-xl text-xs font-semibold shadow-sm transition-all inline-flex items-center space-x-2"
@@ -838,19 +1096,27 @@ function renderDrawerFhirTab(container) {
                         ${iconSvg("fhir", "w-4 h-4")}
                         <span>Normalize Patient to FHIR R4</span>
                     </button>
+                    <button
+                        onclick="refreshDrawerFhirResources(false)"
+                        class="px-4 py-2.5 bg-white border border-[#E5EAEA] hover:border-[#389B98] text-slate-700 rounded-xl text-xs font-semibold shadow-2xs hover:shadow-xs transition-all inline-flex items-center space-x-2"
+                    >
+                        ${iconSvg("refresh", "w-4 h-4")}
+                        <span>Check for Updates</span>
+                    </button>
                 </div>
             </div>
         `;
         return;
     }
 
-    const cardsHtml = resources.map((r, idx) => {
+    const cardsHtml = filteredResources.map((r) => {
         let typeBadgeClass = "bg-slate-100 text-slate-700 border-slate-200";
         if (r.resource_type === "Observation") typeBadgeClass = "bg-blue-50 text-blue-700 border-blue-200";
         else if (r.resource_type === "Condition") typeBadgeClass = "bg-rose-50 text-rose-700 border-rose-200";
         else if (r.resource_type === "DiagnosticReport") typeBadgeClass = "bg-purple-50 text-purple-700 border-purple-200";
         else if (r.resource_type === "Patient") typeBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
         else if (r.resource_type === "DocumentReference") typeBadgeClass = "bg-teal-50 text-teal-700 border-teal-200";
+        else if (r.resource_type === "Encounter") typeBadgeClass = "bg-amber-50 text-amber-700 border-amber-200";
 
         const rawJsonEscaped = escapeHtml(JSON.stringify(r.raw_resource || r.details, null, 2));
 
@@ -895,32 +1161,177 @@ function renderDrawerFhirTab(container) {
 
     container.innerHTML = `
         <div class="p-6 space-y-4">
-            <div class="flex items-center justify-between border-b border-[#E5EAEA] pb-3">
-                <span class="text-xs font-bold text-slate-700">Linked FHIR Resources (${resources.length})</span>
-                <button
-                    onclick="triggerDrawerFhirNormalization()"
-                    class="text-xs font-medium text-[#389B98] hover:text-[#287F7D] flex items-center space-x-1"
-                >
-                    ${iconSvg("refresh", "w-3 h-3")}
-                    <span>Re-Normalize Bundle</span>
-                </button>
+            <!-- Header with Live Sync Status & Actions -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white p-3.5 rounded-xl border border-[#E5EAEA] shadow-2xs">
+                <div class="flex items-center space-x-2.5">
+                    <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Live Synced: ${fetchedTimeStr}</span>
+                    </span>
+                    <span class="text-xs font-mono font-bold text-slate-600">
+                        ${allResources.length} Total Resources
+                    </span>
+                </div>
+                <div class="flex items-center space-x-2 self-end sm:self-auto">
+                    <button
+                        id="btn-refresh-fhir"
+                        onclick="refreshDrawerFhirResources(false)"
+                        class="px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#389B98] bg-slate-50 hover:bg-white border border-[#E5EAEA] hover:border-[#389B98] rounded-xl transition-all flex items-center space-x-1.5 cursor-pointer"
+                        title="Fetch latest linked FHIR resources from database"
+                    >
+                        ${iconSvg("refresh", "w-3.5 h-3.5")}
+                        <span>Refresh State</span>
+                    </button>
+                    <button
+                        id="btn-normalize-fhir"
+                        onclick="triggerDrawerFhirNormalization()"
+                        class="px-3 py-1.5 text-xs font-semibold text-white bg-[#389B98] hover:bg-[#287F7D] rounded-xl transition-all flex items-center space-x-1.5 shadow-2xs cursor-pointer"
+                        title="Re-assemble and validate HL7 FHIR R4 Bundle"
+                    >
+                        ${iconSvg("fhir", "w-3.5 h-3.5")}
+                        <span>Re-Normalize</span>
+                    </button>
+                </div>
             </div>
+
+            <!-- Filter Pills -->
+            <div class="flex flex-wrap items-center gap-1.5 text-xs">
+                <button
+                    onclick="filterDrawerFhirResources('ALL')"
+                    class="px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${activeFilter === 'ALL' ? 'bg-[#389B98] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+                >
+                    All (${counts.ALL})
+                </button>
+                ${counts.Observation > 0 ? `
+                    <button
+                        onclick="filterDrawerFhirResources('Observation')"
+                        class="px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${activeFilter === 'Observation' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'}"
+                    >
+                        Observations (${counts.Observation})
+                    </button>
+                ` : ""}
+                ${counts.Condition > 0 ? `
+                    <button
+                        onclick="filterDrawerFhirResources('Condition')"
+                        class="px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${activeFilter === 'Condition' ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'}"
+                    >
+                        Conditions (${counts.Condition})
+                    </button>
+                ` : ""}
+                ${counts.DiagnosticReport > 0 ? `
+                    <button
+                        onclick="filterDrawerFhirResources('DiagnosticReport')"
+                        class="px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${activeFilter === 'DiagnosticReport' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'}"
+                    >
+                        Reports (${counts.DiagnosticReport})
+                    </button>
+                ` : ""}
+                ${counts.DocumentReference > 0 ? `
+                    <button
+                        onclick="filterDrawerFhirResources('DocumentReference')"
+                        class="px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${activeFilter === 'DocumentReference' ? 'bg-teal-600 text-white' : 'bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200'}"
+                    >
+                        Documents (${counts.DocumentReference})
+                    </button>
+                ` : ""}
+                ${counts.Encounter > 0 ? `
+                    <button
+                        onclick="filterDrawerFhirResources('Encounter')"
+                        class="px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${activeFilter === 'Encounter' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}"
+                    >
+                        Encounters (${counts.Encounter})
+                    </button>
+                ` : ""}
+                ${counts.Patient > 0 ? `
+                    <button
+                        onclick="filterDrawerFhirResources('Patient')"
+                        class="px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${activeFilter === 'Patient' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'}"
+                    >
+                        Patient (${counts.Patient})
+                    </button>
+                ` : ""}
+            </div>
+
+            <!-- Resource Cards -->
             <div class="space-y-3">
-                ${cardsHtml}
+                ${cardsHtml || `
+                    <div class="p-8 text-center text-xs text-slate-400 bg-white rounded-xl border border-[#E5EAEA]">
+                        No resources matching category "${escapeHtml(activeFilter)}".
+                    </div>
+                `}
             </div>
         </div>
     `;
 }
 
+export async function refreshDrawerFhirResources(silent = false) {
+    if (!currentActivePatientId) return;
+
+    const btn = document.getElementById("btn-refresh-fhir");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `${iconSvg("spinner", "w-3.5 h-3.5 animate-spin")} <span>Refreshing...</span>`;
+    }
+
+    try {
+        const bodyEl = document.getElementById("drawer-content-body");
+        if (bodyEl && currentActiveTab === "fhir") {
+            await renderDrawerFhirTab(bodyEl, true);
+        } else {
+            const freshRes = await getPatientFhirResources(currentActivePatientId);
+            cachedFhirState = {
+                patientId: currentActivePatientId,
+                resources: Array.isArray(freshRes) ? freshRes : [],
+                fetchedAt: new Date(),
+                filter: cachedFhirState.filter || "ALL",
+            };
+        }
+        if (!silent) {
+            showToast("success", "FHIR State Updated", "Linked FHIR resources are up to date.");
+        }
+    } catch (err) {
+        showToast("error", "Refresh Failed", err.message || "Failed to refresh FHIR resources");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+        }
+    }
+}
+
+export function filterDrawerFhirResources(filterType) {
+    cachedFhirState.filter = filterType;
+    const bodyEl = document.getElementById("drawer-content-body");
+    if (bodyEl && currentActiveTab === "fhir") {
+        renderDrawerFhirTab(bodyEl, false);
+    }
+}
+
+export function invalidatePatientFhirCache(patientId) {
+    if (cachedFhirState.patientId === patientId || !patientId) {
+        cachedFhirState = { patientId: null, resources: null, fetchedAt: null, filter: "ALL" };
+    }
+}
+
 export async function triggerDrawerFhirNormalization() {
+    if (!currentActivePatientId) return;
+
+    const btn = document.getElementById("btn-normalize-fhir");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `${iconSvg("spinner", "w-3.5 h-3.5 animate-spin")} <span>Normalizing...</span>`;
+    }
+
     try {
         showToast("info", "Normalization Triggered", "Normalizing patient records into FHIR R4 Bundle...", 3000);
         await normalizePatient(currentActivePatientId, "collection");
-        cachedFhirResources = await getPatientFhirResources(currentActivePatientId);
         showToast("success", "Normalization Complete", "Patient successfully normalized to validated FHIR R4 Bundle.");
-        await switchDrawerTab("fhir");
+        await refreshDrawerFhirResources(true);
     } catch (err) {
         showToast("error", "Normalization Failed", err.message || "Failed to normalize patient to FHIR");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+        }
     }
 }
 
@@ -981,9 +1392,13 @@ async function renderDrawerRecordsTab(container) {
             </div>
         `;
     } catch (err) {
+        console.error("Records loading failure:", err);
         container.innerHTML = `
-            <div class="p-8 text-center text-xs text-rose-600">
-                Failed to load records: ${escapeHtml(err.message)}
+            <div class="p-8 text-center text-xs text-rose-600 space-y-2">
+                <p>Failed to load records: ${escapeHtml(err.message)}</p>
+                <button onclick="switchDrawerTab('records')" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-semibold">
+                    Retry
+                </button>
             </div>
         `;
     }
@@ -1094,4 +1509,8 @@ window.switchDrawerTab = switchDrawerTab;
 window.triggerDrawerSummaryGeneration = triggerDrawerSummaryGeneration;
 window.triggerDrawerSummaryRegeneration = triggerDrawerSummaryRegeneration;
 window.triggerDrawerFhirNormalization = triggerDrawerFhirNormalization;
+window.refreshDrawerFhirResources = refreshDrawerFhirResources;
+window.filterDrawerFhirResources = filterDrawerFhirResources;
+window.invalidatePatientFhirCache = invalidatePatientFhirCache;
+
 

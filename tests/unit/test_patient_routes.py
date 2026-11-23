@@ -84,3 +84,127 @@ async def test_patients_workflow(async_client: AsyncClient) -> None:
     assert jobs_res.status_code == status.HTTP_200_OK
     jobs_data = jobs_res.json()
     assert jobs_data["total"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_patient_fhir_resources_unbundled_fallback(
+    async_client: AsyncClient, test_settings
+) -> None:
+    """Verify GET /api/v1/patients/{id}/fhir-resources gracefully falls back to domain models when no bundle exists."""
+    from app.models.database import get_session_factory
+    from app.models.ingestion import PatientModel, ObservationModel, ConditionModel, DiagnosticReportModel, IngestionJobModel
+
+    session_factory = get_session_factory(test_settings.sqlite_url)
+    async with session_factory() as session:
+        job = IngestionJobModel(id="job-unbundled-1", source_system="ehr", source_format="csv")
+        session.add(job)
+        pat = PatientModel(id="pat-unbundled-1", source_system="ehr", mrn="MRN-UNB-1", first_name="Unb", last_name="Test")
+        session.add(pat)
+
+        obs = ObservationModel(
+            id="obs-unb-1",
+            job_id="job-unbundled-1",
+            source_system="ehr",
+            patient_id="pat-unbundled-1",
+            code="8480-6",
+            display="Systolic blood pressure",
+            value_numeric=120.0,
+            unit="mmHg",
+            effective_date="2026-01-01",
+        )
+        session.add(obs)
+
+        cond = ConditionModel(
+            id="cond-unb-1",
+            job_id="job-unbundled-1",
+            source_system="ehr",
+            patient_id="pat-unbundled-1",
+            code="I10",
+            display="Essential hypertension",
+            clinical_status="active",
+            verification_status="confirmed",
+        )
+        session.add(cond)
+
+        diag = DiagnosticReportModel(
+            id="diag-unb-1",
+            job_id="job-unbundled-1",
+            source_system="ehr",
+            patient_id="pat-unbundled-1",
+            code="CBC",
+            display="Complete Blood Count",
+            conclusion="Normal",
+        )
+        session.add(diag)
+        await session.commit()
+
+    resp = await async_client.get(
+        "/api/v1/patients/pat-unbundled-1/fhir-resources",
+        headers={"X-API-Key": "dev-test-key"},
+    )
+    assert resp.status_code == status.HTTP_200_OK
+    items = resp.json()
+    assert len(items) == 3
+    types = {item["resource_type"] for item in items}
+    assert types == {"Observation", "Condition", "DiagnosticReport"}
+
+
+@pytest.mark.asyncio
+async def test_patient_fhir_resources_by_mrn_and_normalization(
+    async_client: AsyncClient, test_settings
+) -> None:
+    """Verify GET /api/v1/patients/{mrn}/fhir-resources resolves by MRN and matches UUID query."""
+    from app.models.database import get_session_factory
+    from app.models.ingestion import PatientModel, ObservationModel, IngestionJobModel
+
+    session_factory = get_session_factory(test_settings.sqlite_url)
+    async with session_factory() as session:
+        job = IngestionJobModel(id="job-mrn-test", source_system="ehr", source_format="csv")
+        session.add(job)
+        pat = PatientModel(id="pat-mrn-uuid-1", source_system="ehr", mrn="MRN-TARGET-99", first_name="Target", last_name="Patient")
+        session.add(pat)
+
+        obs = ObservationModel(
+            id="obs-mrn-1",
+            job_id="job-mrn-test",
+            source_system="ehr",
+            patient_id="pat-mrn-uuid-1",
+            code="8480-6",
+            display="Systolic blood pressure",
+            value_numeric=125.0,
+            unit="mmHg",
+            effective_date="2026-02-01",
+        )
+        session.add(obs)
+        await session.commit()
+
+    # Query by UUID
+    resp_uuid = await async_client.get(
+        "/api/v1/patients/pat-mrn-uuid-1/fhir-resources",
+        headers={"X-API-Key": "dev-test-key"},
+    )
+    assert resp_uuid.status_code == status.HTTP_200_OK
+    items_uuid = resp_uuid.json()
+    assert len(items_uuid) >= 1
+
+    # Query by MRN
+    resp_mrn = await async_client.get(
+        "/api/v1/patients/MRN-TARGET-99/fhir-resources",
+        headers={"X-API-Key": "dev-test-key"},
+    )
+    assert resp_mrn.status_code == status.HTTP_200_OK
+    items_mrn = resp_mrn.json()
+    assert len(items_mrn) == len(items_uuid)
+    assert items_mrn[0]["id"] == items_uuid[0]["id"]
+
+    # Normalize by MRN
+    norm_resp = await async_client.post(
+        "/api/v1/fhir/normalize/patient/MRN-TARGET-99?bundle_type=collection&save_to_store=true",
+        headers={"X-API-Key": "dev-test-key"},
+    )
+    assert norm_resp.status_code == status.HTTP_200_OK
+    norm_data = norm_resp.json()
+    assert norm_data["patient_id"] == "pat-mrn-uuid-1"
+    assert norm_data["patient_mrn"] == "MRN-TARGET-99"
+
+

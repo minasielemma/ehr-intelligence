@@ -105,6 +105,7 @@ export async function executeClinicalSearch() {
             // Superseded by newer keystroke, do not display error
             return;
         }
+        console.error("Search error:", err);
         renderSearchError(resultsContainer, err.message || "Semantic search request failed");
     } finally {
         if (submitBtn) {
@@ -112,6 +113,36 @@ export async function executeClinicalSearch() {
             submitBtn.innerHTML = `<span>Search</span> ${iconSvg("search", "w-3.5 h-3.5 ml-1")}`;
         }
     }
+}
+
+function cleanSnippetText(text) {
+    if (!text) return "";
+    let clean = String(text).trim();
+    if (clean.startsWith("{") && clean.endsWith("}")) {
+        try {
+            const parsed = JSON.parse(clean);
+            clean = parsed.clinical_summary || parsed.summary || parsed.snippet || Object.values(parsed).find(v => typeof v === "string") || clean;
+        } catch (e) {}
+    }
+    if (clean.includes("<untrusted_clinical_note") || clean.includes("</untrusted_clinical_note>")) {
+        clean = clean.replace(/<\/?untrusted_clinical_note[^>]*>/gi, "");
+    }
+    if (clean.includes("<br")) {
+        clean = clean.replace(/<br\s*\/?>/gi, " ");
+    }
+    if (clean.includes("<") && clean.includes(">")) {
+        clean = clean.replace(/<[^>]+>/g, " ");
+    }
+    // Clean raw ingestion header prefixes without destroying clinical narrative
+    clean = clean.replace(/(?:Bed assignment id|Admission id|History id):\s*[\w\-]+[;,]?\s*/gi, " ");
+    clean = clean.replace(/\s+/g, " ").trim();
+    clean = clean.replace(/^[<«‹\s]+/, "").replace(/[>»›\s]+$/, "").trim();
+
+    const words = clean.split(/\s+/).filter(Boolean);
+    if (words.length >= 200) {
+        clean = words.slice(0, 195).join(" ") + "...";
+    }
+    return clean;
 }
 
 function renderSearchSkeleton(container) {
@@ -238,32 +269,32 @@ function renderSearchResults(data, filters, elapsedMs) {
 
         return `
             <div
-                class="bg-white rounded-2xl border border-[#E5EAEA] hover:border-[#389B98] p-5 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-3.5 group"
+                class="bg-white rounded-2xl border border-[#E5EAEA] hover:border-[#389B98] p-4 sm:p-5 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-3 group"
                 onclick="openPatientDrawer('${escapeHtml(item.patient_id)}')"
                 title="Click to view comprehensive patient profile, AI summary, and linked FHIR resources"
             >
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                    <div class="flex flex-wrap items-center gap-2">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 pb-3">
+                    <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <span class="text-xs font-mono font-bold text-slate-400">#${idx + 1}</span>
-                        <span class="px-2 py-0.5 rounded text-xs font-bold font-mono border ${typeBadgeClass}">
+                        <span class="px-2 py-0.5 rounded text-[11px] sm:text-xs font-bold font-mono border ${typeBadgeClass}">
                             ${escapeHtml(item.resource_type)}
                         </span>
                         ${sourceBadge}
-                        <span class="text-xs text-slate-500">
+                        <span class="text-xs text-slate-600">
                             Patient: <strong class="text-[#389B98] font-mono group-hover:underline">${escapeHtml(item.patient_id)}</strong>
                         </span>
-                        <span class="text-slate-300">|</span>
-                        <span class="text-xs text-slate-400 font-mono text-[11px] truncate max-w-[200px]" title="${escapeHtml(item.record_id)}">
+                        <span class="hidden sm:inline text-slate-300">|</span>
+                        <span class="text-xs text-slate-400 font-mono text-[11px] truncate max-w-[140px] sm:max-w-[220px]" title="${escapeHtml(item.record_id)}">
                             ID: ${escapeHtml(item.record_id)}
                         </span>
                     </div>
 
-                    <div class="flex items-center space-x-3 self-end sm:self-auto">
+                    <div class="flex items-center space-x-3 self-end sm:self-auto flex-shrink-0">
                         <div class="text-right">
                             <span class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold border ${scoreBadgeClass}">
                                 ${pct}% Relevance
                             </span>
-                            <div class="w-24 bg-slate-100 h-1.5 rounded-full mt-1.5 overflow-hidden ml-auto">
+                            <div class="w-20 sm:w-24 bg-slate-100 h-1.5 rounded-full mt-1.5 overflow-hidden ml-auto">
                                 <div class="${barColor} h-full rounded-full" style="width: ${pct}%"></div>
                             </div>
                         </div>
@@ -280,7 +311,7 @@ function renderSearchResults(data, filters, elapsedMs) {
 
                 <!-- Clinical Text Snippet -->
                 <div class="bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl p-3.5 text-xs text-slate-700 leading-relaxed font-sans">
-                    <p class="whitespace-pre-wrap">${escapeHtml(item.snippet)}</p>
+                    <p class="m-0">${escapeHtml(cleanSnippetText(item.snippet))}</p>
                 </div>
 
                 <!-- Footer Hint -->

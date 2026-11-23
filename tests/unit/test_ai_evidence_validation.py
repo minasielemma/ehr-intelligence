@@ -200,3 +200,98 @@ def test_multi_token_hallucination_with_common_qualifier_rejected(sample_source_
     assert result.is_valid is False
     assert any("Glioblastoma" in claim for claim in result.unsupported_claims)
 
+
+def test_synthesize_evidence_fallback_accuracy():
+    """Verify that _synthesize_evidence_fallback excludes refuted diagnoses, includes RAD imaging, and passes validation."""
+    from app.ai.extractor import (
+        ExtractedClinicalRecord,
+        ExtractedCondition,
+        ExtractedDiagnosticReport,
+        ExtractedEncounter,
+        ExtractedObservation,
+        ExtractedPatient,
+    )
+    from app.services.clinical_summarization_service import ClinicalSummarizationService
+
+    patient = ExtractedPatient(id="pat-fb-1", mrn="MRN-FB-100", gender="female", age_years=62)
+    conditions = [
+        ExtractedCondition(
+            id="c1",
+            name="Suspected Pulmonary Embolism",
+            clinical_status="active",
+            verification_status="refuted",
+        ),
+        ExtractedCondition(
+            id="c2",
+            name="Essential Hypertension",
+            clinical_status="active",
+            verification_status="confirmed",
+        ),
+    ]
+    observations = [
+        ExtractedObservation(
+            id="o1",
+            name="Serum Potassium",
+            category="laboratory",
+            value="5.6 mmol/L",
+            is_abnormal=True,
+        ),
+    ]
+    diagnostic_reports = [
+        ExtractedDiagnosticReport(
+            id="dr1",
+            name="CT Chest with Contrast",
+            category="RAD",
+            conclusion="No evidence of acute pulmonary embolism",
+        ),
+    ]
+    encounters = [
+        ExtractedEncounter(
+            id="e1",
+            encounter_type="Emergency Visit",
+        ),
+    ]
+
+    record = ExtractedClinicalRecord(
+        patient=patient,
+        conditions=conditions,
+        observations=observations,
+        diagnostic_reports=diagnostic_reports,
+        encounters=encounters,
+    )
+
+    from unittest.mock import MagicMock
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.ai.providers.base import BaseLLMProvider
+
+    mock_session = MagicMock(spec=AsyncSession)
+    mock_provider = MagicMock(spec=BaseLLMProvider)
+    mock_provider.provider_name = "ollama"
+    mock_provider.model_name = "gemma3:12b"
+
+    # Instantiate mock service
+    service = ClinicalSummarizationService(
+        session=mock_session,
+        provider=mock_provider,
+    )
+
+    fallback_dict = service._synthesize_evidence_fallback(record, "pat-fb-1")
+    summary = ClinicalSummaryResponse.model_validate(fallback_dict)
+
+    # 1. Refuted condition must NOT be in key diagnoses or narrative
+    assert "Suspected Pulmonary Embolism" not in summary.key_diagnoses
+    assert "Essential Hypertension" in summary.key_diagnoses
+    assert "Suspected Pulmonary Embolism" not in summary.clinical_summary
+
+    # 2. Radiology imaging report must be captured
+    assert "CT Chest with Contrast" in summary.recent_diagnostic_records.imaging
+
+    # 3. Word count must be strictly under 200 words
+    assert summary.word_count < 200
+    assert summary.word_count > 10
+
+    # 4. Fallback must pass EvidenceValidator without rejection
+    val_res = EvidenceValidator.validate_summary(summary, record)
+    assert val_res.should_reject is False
+
+

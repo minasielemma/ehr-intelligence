@@ -98,7 +98,7 @@ export async function loadStoredFhirBundles(page = 1) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="8" class="p-8 text-center text-rose-600 text-xs">
-                        Failed to load FHIR Bundles: ${escapeHtml(err.message)}
+                        Failed to load FHIR Bundles: ${escapeHtml(err.message || "Network or server error")}
                     </td>
                 </tr>
             `;
@@ -121,6 +121,10 @@ export async function triggerPatientNormalization() {
         showToast("info", "Normalization Started", `Normalizing patient ${patientId}...`, 3000);
         const res = await normalizePatient(patientId, bundleType);
         showToast("success", "Bundle Created", `FHIR Bundle ${res.bundle_id} (v${res.version}) saved with status ${res.validation_report.status}`);
+        if (typeof window.invalidatePatientFhirCache === "function") {
+            window.invalidatePatientFhirCache(patientId);
+            if (res.patient_id) window.invalidatePatientFhirCache(res.patient_id);
+        }
         loadStoredFhirBundles(1);
     } catch (err) {
         showToast("error", "Normalization Failed", err.message || "Could not normalize patient");
@@ -142,6 +146,9 @@ export async function triggerJobNormalization() {
         showToast("info", "Batch Normalization", `Processing all patients for job ${jobId}...`, 3000);
         const results = await normalizeJob(jobId, bundleType);
         showToast("success", "Batch Complete", `Normalized ${results.length} patient bundles successfully.`);
+        if (typeof window.invalidatePatientFhirCache === "function") {
+            window.invalidatePatientFhirCache(null); // Invalidate all cached patient FHIR states
+        }
         loadStoredFhirBundles(1);
     } catch (err) {
         showToast("error", "Batch Normalization Failed", err.message || "Could not normalize job");

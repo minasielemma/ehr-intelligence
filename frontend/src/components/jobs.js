@@ -102,7 +102,7 @@ export async function loadIngestionJobsList(page = 1) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="7" class="p-8 text-center text-rose-600 text-xs">
-                        Failed to load jobs: ${escapeHtml(err.message)}
+                        Failed to load jobs: ${escapeHtml(err.message || "Network or server error")}
                     </td>
                 </tr>
             `;

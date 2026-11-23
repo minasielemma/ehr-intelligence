@@ -104,7 +104,12 @@ export async function loadPatientsDirectory(page = 1) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="8" class="p-8 text-center text-rose-600 text-xs">
-                        Failed to load patients: ${escapeHtml(err.message)}
+                        <div class="space-y-1">
+                            <p class="font-medium">Failed to load patients: ${escapeHtml(err.message || "Network or server error")}</p>
+                            <button onclick="loadPatientsDirectory(1)" class="mt-1 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition-colors">
+                                Retry
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;

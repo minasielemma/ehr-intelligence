@@ -5,8 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Onye EHR Intelligence Platform - Clinical Semantic Search & FHIR R4 Engine</title>
     
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS (Local Bundle with CDN Fallback) -->
+    <script src="./assets/tailwind.cdn.js"></script>
+    <script>
+        if (!window.tailwind) {
+            const twScript = document.createElement("script");
+            twScript.src = "https://cdn.tailwindcss.com";
+            document.head.appendChild(twScript);
+        }
+    </script>
     <script>
         tailwind.config = {
             theme: {
@@ -29,103 +36,285 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="./assets/style.css">
 </head>
-<body class="bg-[#F7F9FA] text-[#263238] min-h-screen flex flex-col font-sans antialiased">
+<body class="app-shell font-sans antialiased text-[#263238] bg-[#F7F9FA]">
 
-    <!-- Top Navigation Header -->
-    <header class="bg-white border-b border-[#E5EAEA] sticky top-0 z-40 shadow-sm backdrop-blur-md bg-opacity-95">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-            
-            <!-- Brand & Product Title -->
-            <div class="flex items-center space-x-3.5">
-                <a href="#dashboard" onclick="switchMainTab('dashboard')" class="flex items-center space-x-3 group">
-                    <img src="/assets/logo.png" alt="onye" class="h-9 w-auto object-contain transition-transform group-hover:scale-105">
-                    <div class="border-l border-[#E5EAEA] pl-3">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20">
-                                EHR Intelligence
-                            </span>
+    <!-- Desktop & Tablet Collapsible Sidebar -->
+    <aside id="app-sidebar" class="app-sidebar" aria-label="Main Navigation">
+        <!-- Sidebar Brand Header -->
+        <div class="h-[60px] px-4 flex items-center justify-between border-b border-[#E5EAEA] bg-white flex-shrink-0">
+            <a href="#dashboard" onclick="switchMainTab('dashboard')" class="flex items-center space-x-3 overflow-hidden group">
+                <img src="./assets/logo.png" alt="onye" class="h-8 w-auto object-contain flex-shrink-0 transition-transform group-hover:scale-105">
+                <div class="sidebar-header-text overflow-hidden whitespace-nowrap">
+                    <span class="text-xs font-bold text-[#389B98] tracking-tight">EHR Intelligence</span>
+                    <p class="text-[10px] text-slate-400 truncate">Clinical Platform</p>
+                </div>
+            </a>
+            <button
+                type="button"
+                onclick="toggleSidebarCollapse()"
+                id="sidebar-toggle-btn"
+                class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                title="Toggle sidebar collapse"
+                aria-label="Toggle sidebar collapse"
+            >
+                <svg id="sidebar-toggle-icon" class="w-4 h-4 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Sidebar Navigation Links -->
+        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1.5" aria-label="Sidebar Menu">
+            <button id="sidebar-btn-dashboard" onclick="switchMainTab('dashboard')" class="sidebar-nav-item w-full group flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20 transition-all shadow-xs" title="Clinical Dashboard">
+                <svg class="w-4 h-4 flex-shrink-0 text-[#389B98]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+                <span class="sidebar-text truncate">Clinical Dashboard</span>
+            </button>
+            <button id="sidebar-btn-search" onclick="switchMainTab('search')" class="sidebar-nav-item w-full group flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent" title="Semantic Search">
+                <svg class="w-4 h-4 flex-shrink-0 text-slate-500 group-hover:text-[#389B98]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span class="sidebar-text truncate">Semantic Search</span>
+            </button>
+            <button id="sidebar-btn-patients" onclick="switchMainTab('patients')" class="sidebar-nav-item w-full group flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent" title="Patient Directory">
+                <svg class="w-4 h-4 flex-shrink-0 text-slate-500 group-hover:text-[#389B98]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span class="sidebar-text truncate">Patient Directory</span>
+            </button>
+            <button id="sidebar-btn-ingest" onclick="switchMainTab('ingest')" class="sidebar-nav-item w-full group flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent" title="Ingest EHR Data">
+                <svg class="w-4 h-4 flex-shrink-0 text-slate-500 group-hover:text-[#389B98]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span class="sidebar-text truncate">Ingest EHR Data</span>
+            </button>
+            <button id="sidebar-btn-jobs" onclick="switchMainTab('jobs')" class="sidebar-nav-item w-full group flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent" title="Ingestion Batches">
+                <svg class="w-4 h-4 flex-shrink-0 text-slate-500 group-hover:text-[#389B98]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                <span class="sidebar-text truncate">Ingestion Batches</span>
+            </button>
+            <button id="sidebar-btn-explorer" onclick="switchMainTab('explorer')" class="sidebar-nav-item w-full group flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent" title="Canonical Records & Audit">
+                <svg class="w-4 h-4 flex-shrink-0 text-slate-500 group-hover:text-[#389B98]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span class="sidebar-text truncate">Canonical Records & Audit</span>
+            </button>
+            <button id="sidebar-btn-fhir" onclick="switchMainTab('fhir')" class="sidebar-nav-item w-full group flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent" title="FHIR R4 Bundles">
+                <svg class="w-4 h-4 flex-shrink-0 text-slate-500 group-hover:text-[#389B98]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+                <span class="sidebar-text truncate">FHIR R4 Bundles</span>
+            </button>
+        </nav>
+
+        <!-- Sidebar Footer Status Section -->
+        <div class="p-3 border-t border-[#E5EAEA] bg-white flex-shrink-0">
+            <!-- Expanded View -->
+            <div class="sidebar-footer-expanded space-y-2">
+                <div class="bg-[#F7F9FA] p-2.5 rounded-xl border border-[#E5EAEA] space-y-1.5 text-[11px]">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500 font-medium">Backend API</span>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="backend-indicator-dot w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                            <span class="backend-status-text font-semibold text-slate-700">Connecting...</span>
                         </div>
-                        <p class="text-[11px] text-[#718096]">Clinical Semantic Search, AI Summarization & FHIR R4 Normalization</p>
                     </div>
-                </a>
-            </div>
-
-            <!-- Health & Status Indicators -->
-            <div class="flex items-center space-x-3 text-xs">
-                <div class="flex items-center space-x-2 bg-[#F7F9FA] px-3 py-1.5 rounded-xl border border-[#E5EAEA]">
-                    <span id="backend-indicator" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-                    <span class="text-[#718096]">Backend API:</span>
-                    <span id="backend-status" class="font-semibold text-[#263238]">Connecting...</span>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500 font-medium">ChromaDB</span>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="vector-indicator-dot w-2 h-2 rounded-full bg-slate-400"></span>
+                            <span class="vector-status-text font-semibold text-slate-700">Checking...</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex items-center space-x-2 bg-[#F7F9FA] px-3 py-1.5 rounded-xl border border-[#E5EAEA]">
-                    <span id="vector-indicator" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-                    <span class="text-[#718096]">ChromaDB:</span>
-                    <span id="vector-status" class="font-semibold text-[#263238]">Checking...</span>
-                </div>
-                <a href="/api/v1/docs" target="_blank" class="hidden sm:inline-flex items-center space-x-1.5 bg-[#389B98]/10 hover:bg-[#389B98]/20 text-[#389B98] border border-[#389B98]/30 px-3 py-1.5 rounded-xl transition-colors font-medium">
+                <a href="/api/v1/docs" target="_blank" class="w-full flex items-center justify-center space-x-1.5 py-2 px-3 text-xs font-semibold text-[#389B98] bg-[#389B98]/10 hover:bg-[#389B98]/20 border border-[#389B98]/25 rounded-xl transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                     <span>Swagger API</span>
                 </a>
             </div>
-        </div>
-    </header>
 
-    <!-- Main Navigation Bar -->
-    <div class="bg-white border-b border-[#E5EAEA] sticky top-[61px] z-30 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav class="flex space-x-6 text-xs font-semibold overflow-x-auto py-2.5" aria-label="Tabs">
-                <button id="tab-btn-dashboard" onclick="switchMainTab('dashboard')" class="tab-button border-b-2 border-[#389B98] text-[#389B98] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
+            <!-- Collapsed Rail View -->
+            <div class="sidebar-footer-collapsed hidden flex-col items-center space-y-2">
+                <div class="p-2 rounded-xl bg-[#F7F9FA] border border-[#E5EAEA] flex flex-col items-center space-y-1.5" title="System Health Status">
+                    <span class="backend-indicator-dot w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" title="Backend API"></span>
+                    <span class="vector-indicator-dot w-2.5 h-2.5 rounded-full bg-slate-400" title="ChromaDB"></span>
+                </div>
+                <a href="/api/v1/docs" target="_blank" class="p-2 text-[#389B98] bg-[#389B98]/10 hover:bg-[#389B98]/20 rounded-xl transition-colors" title="Swagger API Docs">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
-                    <span>Clinical Dashboard</span>
-                </button>
-                <button id="tab-btn-search" onclick="switchMainTab('search')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <span>Semantic Search</span>
-                </button>
-                <button id="tab-btn-patients" onclick="switchMainTab('patients')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span>Patient Directory</span>
-                </button>
-                <button id="tab-btn-ingest" onclick="switchMainTab('ingest')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    <span>Ingest EHR Data</span>
-                </button>
-                <button id="tab-btn-jobs" onclick="switchMainTab('jobs')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                    <span>Ingestion Batches</span>
-                </button>
-                <button id="tab-btn-explorer" onclick="switchMainTab('explorer')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                    <span>Canonical Records & Audit</span>
-                </button>
-                <button id="tab-btn-fhir" onclick="switchMainTab('fhir')" class="tab-button border-b-2 border-transparent text-[#718096] hover:text-[#263238] pb-1.5 flex items-center space-x-2 whitespace-nowrap transition-colors">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                    </svg>
-                    <span>FHIR R4 Bundles</span>
-                </button>
-            </nav>
+                </a>
+            </div>
         </div>
+    </aside>
+
+    <!-- Mobile Off-Canvas Navigation Drawer & Backdrop -->
+    <div id="mobile-nav-backdrop" class="mobile-nav-backdrop hidden md:hidden" onclick="closeMobileNav()"></div>
+    <aside id="mobile-nav-drawer" class="mobile-nav-drawer md:hidden" aria-label="Mobile Navigation">
+        <div class="h-[60px] px-4 flex items-center justify-between border-b border-[#E5EAEA] bg-white flex-shrink-0">
+            <div class="flex items-center space-x-3">
+                <img src="./assets/logo.png" alt="onye" class="h-8 w-auto object-contain">
+                <div>
+                    <span class="text-xs font-bold text-[#389B98]">EHR Intelligence</span>
+                    <p class="text-[10px] text-slate-400">Clinical Platform</p>
+                </div>
+            </div>
+            <button
+                type="button"
+                onclick="closeMobileNav()"
+                class="touch-target p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+                aria-label="Close mobile menu"
+            >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto px-4 py-4 space-y-1.5">
+            <button id="mobile-btn-dashboard" onclick="switchMainTab('dashboard')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20 transition-all">
+                <svg class="w-4 h-4 text-[#389B98]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                <span>Clinical Dashboard</span>
+            </button>
+            <button id="mobile-btn-search" onclick="switchMainTab('search')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent">
+                <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <span>Semantic Search</span>
+            </button>
+            <button id="mobile-btn-patients" onclick="switchMainTab('patients')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent">
+                <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                <span>Patient Directory</span>
+            </button>
+            <button id="mobile-btn-ingest" onclick="switchMainTab('ingest')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent">
+                <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                <span>Ingest EHR Data</span>
+            </button>
+            <button id="mobile-btn-jobs" onclick="switchMainTab('jobs')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent">
+                <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                <span>Ingestion Batches</span>
+            </button>
+            <button id="mobile-btn-explorer" onclick="switchMainTab('explorer')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent">
+                <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                <span>Canonical Records & Audit</span>
+            </button>
+            <button id="mobile-btn-fhir" onclick="switchMainTab('fhir')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-transparent">
+                <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                <span>FHIR R4 Bundles</span>
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-[#E5EAEA] bg-white flex-shrink-0 space-y-3">
+            <div class="bg-[#F7F9FA] p-3 rounded-xl border border-[#E5EAEA] space-y-2 text-xs">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500">Backend API</span>
+                    <div class="flex items-center space-x-1.5">
+                        <span class="backend-indicator-dot w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span class="backend-status-text font-semibold text-slate-700">Connecting...</span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500">ChromaDB</span>
+                    <div class="flex items-center space-x-1.5">
+                        <span class="vector-indicator-dot w-2 h-2 rounded-full bg-slate-400"></span>
+                        <span class="vector-status-text font-semibold text-slate-700">Checking...</span>
+                    </div>
+                </div>
+            </div>
+            <a href="/api/v1/docs" target="_blank" class="w-full flex items-center justify-center space-x-1.5 py-2.5 text-xs font-semibold text-[#389B98] bg-[#389B98]/10 border border-[#389B98]/25 rounded-xl">
+                <span>Swagger API Documentation</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Hidden compatibility container for legacy tab-btn references -->
+    <div class="hidden" aria-hidden="true">
+        <button id="tab-btn-dashboard" onclick="switchMainTab('dashboard')"></button>
+        <button id="tab-btn-search" onclick="switchMainTab('search')"></button>
+        <button id="tab-btn-patients" onclick="switchMainTab('patients')"></button>
+        <button id="tab-btn-ingest" onclick="switchMainTab('ingest')"></button>
+        <button id="tab-btn-jobs" onclick="switchMainTab('jobs')"></button>
+        <button id="tab-btn-explorer" onclick="switchMainTab('explorer')"></button>
+        <button id="tab-btn-fhir" onclick="switchMainTab('fhir')"></button>
     </div>
 
-    <!-- Main Content Container -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+    <!-- Main Application Viewport Column -->
+    <div class="app-main-viewport">
+        <!-- Top Application Header Bar -->
+        <header class="app-header">
+            <!-- Left: Mobile Menu Toggle + Breadcrumb / Active Page Title -->
+            <div class="flex items-center space-x-3 min-w-0">
+                <!-- Mobile Menu Button (< md) -->
+                <button
+                    type="button"
+                    onclick="toggleMobileNav()"
+                    class="md:hidden touch-target p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+                    aria-label="Open mobile navigation menu"
+                >
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+
+                <!-- Mobile Brand (< md) -->
+                <div class="md:hidden flex items-center space-x-2">
+                    <img src="./assets/logo.png" alt="onye" class="h-7 w-auto object-contain">
+                </div>
+
+                <!-- Breadcrumb & Active Section Display -->
+                <div class="hidden sm:flex items-center space-x-2.5 min-w-0">
+                    <div class="flex items-center space-x-2">
+                        <h1 id="header-section-title" class="text-sm font-bold text-slate-800 tracking-tight truncate">Clinical Overview Dashboard</h1>
+                        <span id="header-section-badge" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20 whitespace-nowrap">Live Telemetry</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Health Status Pills & Quick Actions -->
+            <div class="flex items-center space-x-2 sm:space-x-3 text-xs">
+                <!-- Quick Search Input / Shortcut -->
+                <button
+                    type="button"
+                    onclick="switchMainTab('search')"
+                    class="hidden md:inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-[#F7F9FA] hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-[#E5EAEA] transition-colors"
+                    title="Press '/' to search"
+                >
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <span class="text-[11px]">Quick Search</span>
+                    <kbd class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-white border border-slate-200 text-slate-500">/</kbd>
+                </button>
+
+                <!-- Health Status Badges -->
+                <div class="hidden sm:flex items-center space-x-2 bg-[#F7F9FA] px-2.5 py-1.5 rounded-xl border border-[#E5EAEA]">
+                    <span id="backend-indicator" class="backend-indicator-dot w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    <span class="text-slate-400 text-[11px]">API:</span>
+                    <span id="backend-status" class="backend-status-text font-semibold text-slate-700 text-[11px]">Connecting...</span>
+                </div>
+                <div class="hidden lg:flex items-center space-x-2 bg-[#F7F9FA] px-2.5 py-1.5 rounded-xl border border-[#E5EAEA]">
+                    <span id="vector-indicator" class="vector-indicator-dot w-2 h-2 rounded-full bg-slate-400"></span>
+                    <span class="text-slate-400 text-[11px]">Chroma:</span>
+                    <span id="vector-status" class="vector-status-text font-semibold text-slate-700 text-[11px]">Checking...</span>
+                </div>
+
+                <!-- API Docs Button -->
+                <a href="/api/v1/docs" target="_blank" class="hidden sm:inline-flex items-center space-x-1.5 bg-[#389B98]/10 hover:bg-[#389B98]/20 text-[#389B98] border border-[#389B98]/30 px-3 py-1.5 rounded-xl transition-colors font-medium">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    <span>API Docs</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Content Area: Scrollable, Full-Viewport Width -->
+        <main class="app-content">
+            <div class="content-fluid-wrapper space-y-6">
 
         <!-- =================================================================== -->
         <!-- TAB 1: CLINICAL OVERVIEW DASHBOARD (PHASE 4) -->
@@ -175,14 +364,14 @@
                             type="text"
                             id="search-query-input"
                             autocomplete="off"
-                            placeholder="Search symptoms, diagnoses, elevated labs, medications (e.g. 'uncontrolled diabetes with high HbA1c')... Press '/' to focus"
-                            class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-2xl pl-12 pr-28 py-3.5 text-sm text-[#263238] placeholder-slate-400 focus:outline-none focus:border-[#389B98] focus:bg-white shadow-inner font-sans transition-all"
+                            placeholder="Search symptoms, diagnoses, labs, medications..."
+                            class="w-full bg-[#F7F9FA] border border-[#E5EAEA] rounded-2xl pl-10 sm:pl-12 pr-20 sm:pr-28 py-2.5 sm:py-3.5 text-xs sm:text-sm text-[#263238] placeholder-slate-400 focus:outline-none focus:border-[#389B98] focus:bg-white shadow-inner font-sans transition-all"
                         />
-                        <div class="absolute inset-y-0 right-2 flex items-center space-x-1.5">
+                        <div class="absolute inset-y-0 right-1.5 sm:right-2 flex items-center space-x-1 sm:space-x-1.5">
                             <button
                                 type="button"
                                 onclick="clearSearchInput()"
-                                class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+                                class="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
                                 title="Clear query"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -192,12 +381,12 @@
                             <button
                                 type="submit"
                                 id="search-submit-btn"
-                                class="px-5 py-2.5 bg-[#389B98] hover:bg-[#287F7D] text-white text-xs font-semibold rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
+                                class="px-2.5 sm:px-5 py-1.5 sm:py-2.5 bg-[#389B98] hover:bg-[#287F7D] text-white text-xs font-semibold rounded-xl shadow-sm transition-all flex items-center space-x-1 sm:space-x-1.5"
                             >
-                                <span>Search</span>
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
+                                <span class="hidden sm:inline">Search</span>
                             </button>
                         </div>
                     </div>
@@ -375,7 +564,7 @@
                 </div>
 
                 <!-- Patients Table -->
-                <div class="overflow-x-auto border border-[#E5EAEA] rounded-xl">
+                <div class="table-responsive-wrapper border border-[#E5EAEA] rounded-xl">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px]">
                             <tr>
@@ -398,7 +587,7 @@
                 </div>
 
                 <!-- Pagination Bar -->
-                <div class="flex items-center justify-between pt-2 text-xs text-slate-500">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 text-xs text-slate-500">
                     <span id="patients-pagination-info">Showing 0 of 0 patients</span>
                     <div class="flex items-center space-x-1.5">
                         <button id="patients-prev-page-btn" onclick="changePatientPage(-1)" class="p-2 rounded-lg bg-[#F7F9FA] border border-[#E5EAEA] hover:bg-slate-100 disabled:opacity-30 transition-colors" disabled>
@@ -417,20 +606,22 @@
         <!-- =================================================================== -->
         <section id="tab-content-ingest" class="hidden space-y-6">
             <!-- Mode Toggle Bar -->
-            <div class="flex items-center justify-between">
-                <div class="inline-flex rounded-2xl bg-white p-1 border border-[#E5EAEA] text-xs font-semibold shadow-sm">
-                    <button id="mode-file-btn" onclick="switchIngestMode('file')" class="px-4 py-2 rounded-xl bg-[#389B98] text-white shadow-sm font-semibold transition-all">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="inline-flex flex-wrap sm:flex-nowrap rounded-2xl bg-white p-1 border border-[#E5EAEA] text-xs font-semibold shadow-sm w-full sm:w-auto">
+                    <button id="mode-file-btn" onclick="switchIngestMode('file')" class="flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl bg-[#389B98] text-white shadow-sm font-semibold transition-all text-center">
                         File / Package Upload (CSV, JSON, ZIP, TAR)
                     </button>
-                    <button id="mode-json-btn" onclick="switchIngestMode('json')" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 font-medium transition-all">
+                    <button id="mode-json-btn" onclick="switchIngestMode('json')" class="flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 font-medium transition-all text-center">
                         Direct JSON Request Payload
                     </button>
                 </div>
 
-                <div class="flex items-center space-x-2 text-xs text-slate-500">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Max Upload: 100MB</span>
-                    <span class="text-slate-300">|</span>
+                <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <span class="inline-flex items-center space-x-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span>Max Upload: 100MB</span>
+                    </span>
+                    <span class="text-slate-300 hidden sm:inline">|</span>
                     <span>Archive Decompression Safe</span>
                 </div>
             </div>
@@ -644,7 +835,7 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto border border-[#E5EAEA] rounded-xl">
+                <div class="table-responsive-wrapper border border-[#E5EAEA] rounded-xl">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px]">
                             <tr>
@@ -665,7 +856,7 @@
                     </table>
                 </div>
 
-                <div class="flex items-center justify-between pt-2 text-xs text-slate-500">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 text-xs text-slate-500">
                     <span id="jobs-pagination-info">Showing 0 jobs</span>
                     <div class="flex items-center space-x-1.5">
                         <button id="jobs-prev-page-btn" onclick="changeJobPage(-1)" class="p-2 rounded-lg bg-[#F7F9FA] border border-[#E5EAEA] hover:bg-slate-100 disabled:opacity-30" disabled>
@@ -708,7 +899,7 @@
 
             <!-- Clinical Records Table -->
             <div class="bg-white border border-[#E5EAEA] rounded-2xl overflow-hidden shadow-sm">
-                <div class="overflow-x-auto">
+                <div class="table-responsive-wrapper">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px]">
                             <tr>
@@ -741,7 +932,7 @@
                     <span id="audit-count-badge" class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20">0 Audits</span>
                 </div>
 
-                <div class="overflow-x-auto max-h-96 border border-[#E5EAEA] rounded-xl">
+                <div class="table-responsive-wrapper max-h-96 border border-[#E5EAEA] rounded-xl">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold sticky top-0 text-[10px]">
                             <tr>
@@ -796,7 +987,7 @@
                             <option value="transaction">transaction (REST PUT)</option>
                         </select>
                     </div>
-                    <div class="flex items-end space-x-2">
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
                         <button onclick="triggerPatientNormalization()" class="flex-1 py-2 px-3 bg-[#389B98] hover:bg-[#287F7D] text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center justify-center space-x-1.5">
                             <span>Normalize Patient</span>
                         </button>
@@ -817,7 +1008,7 @@
                     <span id="fhir-bundle-count-badge" class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#389B98]/10 text-[#389B98] border border-[#389B98]/20">0 Bundles</span>
                 </div>
 
-                <div class="overflow-x-auto border border-[#E5EAEA] rounded-xl">
+                <div class="table-responsive-wrapper border border-[#E5EAEA] rounded-xl">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-[#F7F9FA] text-slate-400 uppercase tracking-wider font-semibold border-b border-[#E5EAEA] text-[10px]">
                             <tr>
@@ -843,41 +1034,43 @@
             </div>
         </section>
 
-    </main>
+            </div><!-- .content-fluid-wrapper -->
+        </main><!-- .app-content -->
+    </div><!-- .app-main-viewport -->
 
     <!-- ======================================================================= -->
     <!-- PATIENT DETAIL DRAWER (PHASE 5.3) -->
     <!-- ======================================================================= -->
     <div id="patient-drawer-backdrop" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity" onclick="closePatientDrawer()"></div>
 
-    <aside id="patient-detail-drawer" class="fixed top-0 right-0 z-50 h-full w-full max-w-2xl bg-white border-l border-[#E5EAEA] shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-in-out" aria-label="Patient Detail Drawer">
+    <aside id="patient-detail-drawer" class="fixed top-0 right-0 z-50 h-full w-full max-w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl bg-white border-l border-[#E5EAEA] shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-in-out" aria-label="Patient Detail Drawer">
         <!-- Drawer Header -->
-        <div class="px-6 py-4 border-b border-[#E5EAEA] bg-white flex items-start justify-between flex-shrink-0">
-            <div class="space-y-1">
+        <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#E5EAEA] bg-white flex items-start justify-between flex-shrink-0">
+            <div class="space-y-1 min-w-0 pr-2">
                 <div class="flex items-center space-x-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#389B98]"></span>
-                    <h3 id="drawer-patient-name" class="text-base font-bold text-[#263238] tracking-tight">Patient Detail Deep Dive</h3>
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#389B98] flex-shrink-0"></span>
+                    <h3 id="drawer-patient-name" class="text-sm sm:text-base font-bold text-[#263238] tracking-tight truncate">Patient Detail Deep Dive</h3>
                 </div>
                 <div id="drawer-patient-meta"></div>
             </div>
-            <button onclick="closePatientDrawer()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors" title="Close drawer (Esc)">
+            <button onclick="closePatientDrawer()" class="touch-target p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors flex-shrink-0" title="Close drawer (Esc)">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
         </div>
 
         <!-- Drawer Navigation Tabs -->
-        <div class="border-b border-[#E5EAEA] px-6 bg-[#F7F9FA] flex-shrink-0">
-            <nav class="flex space-x-4 text-xs font-semibold" aria-label="Drawer Tabs">
-                <button id="drawer-tab-btn-summary" onclick="switchDrawerTab('summary')" class="px-4 py-2.5 border-b-2 border-[#389B98] text-[#389B98] flex items-center space-x-1.5 transition-colors">
+        <div class="border-b border-[#E5EAEA] px-4 sm:px-6 bg-[#F7F9FA] flex-shrink-0 overflow-x-auto">
+            <nav class="flex space-x-2 sm:space-x-4 text-xs font-semibold py-1 min-w-max" aria-label="Drawer Tabs">
+                <button id="drawer-tab-btn-summary" onclick="switchDrawerTab('summary')" class="px-3 sm:px-4 py-2 sm:py-2.5 border-b-2 border-[#389B98] text-[#389B98] flex items-center space-x-1.5 transition-colors whitespace-nowrap">
                     <span>AI Clinical Summary</span>
                 </button>
-                <button id="drawer-tab-btn-fhir" onclick="switchDrawerTab('fhir')" class="px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors">
+                <button id="drawer-tab-btn-fhir" onclick="switchDrawerTab('fhir')" class="px-3 sm:px-4 py-2 sm:py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors whitespace-nowrap">
                     <span>Linked FHIR Resources</span>
                 </button>
-                <button id="drawer-tab-btn-records" onclick="switchDrawerTab('records')" class="px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors">
+                <button id="drawer-tab-btn-records" onclick="switchDrawerTab('records')" class="px-3 sm:px-4 py-2 sm:py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors whitespace-nowrap">
                     <span>Clinical Records</span>
                 </button>
-                <button id="drawer-tab-btn-demographics" onclick="switchDrawerTab('demographics')" class="px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors">
+                <button id="drawer-tab-btn-demographics" onclick="switchDrawerTab('demographics')" class="px-3 sm:px-4 py-2 sm:py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-1.5 transition-colors whitespace-nowrap">
                     <span>Demographics</span>
                 </button>
             </nav>
@@ -889,7 +1082,7 @@
         </div>
 
         <!-- Drawer Footer -->
-        <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex items-center justify-between flex-shrink-0 text-xs">
+        <div class="px-4 sm:px-6 py-3 border-t border-[#E5EAEA] bg-white flex items-center justify-between flex-shrink-0 text-xs">
             <span class="text-slate-400">Press <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[10px] border">Esc</kbd> to dismiss</span>
             <button onclick="closePatientDrawer()" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors">
                 Close
@@ -902,81 +1095,82 @@
     <!-- ======================================================================= -->
 
     <!-- FHIR Bundle JSON Viewer Modal -->
-    <div id="fhir-bundle-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div class="px-6 py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
+    <div id="fhir-bundle-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6">
+        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-4xl w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#E5EAEA] flex flex-wrap gap-2 items-center justify-between bg-white">
                 <div class="flex items-center space-x-2.5">
                     <span class="w-2.5 h-2.5 rounded-full bg-[#389B98]"></span>
-                    <h3 class="text-sm font-bold text-slate-800" id="fhir-modal-title">HL7 FHIR R4 Bundle JSON</h3>
+                    <h3 class="text-xs sm:text-sm font-bold text-slate-800" id="fhir-modal-title">HL7 FHIR R4 Bundle JSON</h3>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <button onclick="copyActiveFhirBundle()" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center space-x-1">
+                    <button onclick="copyActiveFhirBundle()" class="px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center space-x-1">
                         <span>Copy JSON</span>
                     </button>
-                    <button onclick="downloadActiveFhirBundle()" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#389B98] hover:bg-[#287F7D] text-white transition-colors flex items-center space-x-1 shadow-sm">
+                    <button onclick="downloadActiveFhirBundle()" class="px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#389B98] hover:bg-[#287F7D] text-white transition-colors flex items-center space-x-1 shadow-sm">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        <span>Download JSON</span>
+                        <span class="hidden xs:inline">Download JSON</span>
+                        <span class="xs:hidden">Download</span>
                     </button>
                     <button onclick="closeFhirBundleModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none p-1.5 rounded-lg">&times;</button>
                 </div>
             </div>
-            <div class="p-6 overflow-y-auto space-y-4 flex-1 bg-[#F7F9FA]">
-                <pre id="fhir-modal-json-content" class="bg-white border border-[#E5EAEA] rounded-xl p-4 font-mono text-[11px] text-slate-800 overflow-x-auto max-h-[60vh] leading-relaxed shadow-sm"></pre>
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 bg-[#F7F9FA]">
+                <pre id="fhir-modal-json-content" class="bg-white border border-[#E5EAEA] rounded-xl p-3 sm:p-4 font-mono text-[11px] text-slate-800 overflow-x-auto max-h-[60vh] leading-relaxed shadow-sm"></pre>
             </div>
-            <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
+            <div class="px-4 sm:px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
                 <button onclick="closeFhirBundleModal()" class="px-4 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Close</button>
             </div>
         </div>
     </div>
 
     <!-- FHIR Validation & Conformance Report Modal -->
-    <div id="fhir-report-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div class="px-6 py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
+    <div id="fhir-report-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6">
+        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-3xl w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
                 <div class="flex items-center space-x-2.5">
                     <span class="w-2.5 h-2.5 rounded-full bg-[#389B98]"></span>
-                    <h3 class="text-sm font-bold text-slate-800" id="fhir-report-modal-title">FHIR R4 Conformance & Validation Report</h3>
+                    <h3 class="text-xs sm:text-sm font-bold text-slate-800" id="fhir-report-modal-title">FHIR R4 Conformance & Validation Report</h3>
                 </div>
                 <button onclick="closeFhirReportModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none p-1.5 rounded-lg">&times;</button>
             </div>
-            <div class="p-6 overflow-y-auto space-y-5 flex-1 bg-[#F7F9FA]">
-                <div id="fhir-report-summary-cards" class="grid grid-cols-4 gap-3 text-center text-xs"></div>
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 bg-[#F7F9FA]">
+                <div id="fhir-report-summary-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-center text-xs"></div>
                 <div class="space-y-2">
                     <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Conforming Issues & Diagnostic Recommendations</h4>
                     <div id="fhir-report-issues-container" class="space-y-2 max-h-[50vh] overflow-y-auto"></div>
                 </div>
             </div>
-            <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
+            <div class="px-4 sm:px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
                 <button onclick="closeFhirReportModal()" class="px-4 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Close</button>
             </div>
         </div>
     </div>
 
     <!-- Job Audit & Reconciliation Report Modal -->
-    <div id="job-report-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div class="px-6 py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
+    <div id="job-report-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6">
+        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-4xl w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
                 <div class="flex items-center space-x-2.5">
                     <span class="w-2.5 h-2.5 rounded-full bg-[#389B98]"></span>
-                    <h3 class="text-sm font-bold text-slate-800" id="job-report-modal-title">Ingestion Audit & Reconciliation Report</h3>
+                    <h3 class="text-xs sm:text-sm font-bold text-slate-800" id="job-report-modal-title">Ingestion Audit & Reconciliation Report</h3>
                 </div>
                 <button onclick="closeJobReportModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none p-1.5 rounded-lg">&times;</button>
             </div>
-            <div id="job-report-modal-content" class="p-6 overflow-y-auto space-y-5 flex-1 bg-[#F7F9FA]"></div>
-            <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
+            <div id="job-report-modal-content" class="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 bg-[#F7F9FA]"></div>
+            <div class="px-4 sm:px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
                 <button onclick="closeJobReportModal()" class="px-4 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Close</button>
             </div>
         </div>
     </div>
 
     <!-- Record Deep Dive Modal -->
-    <div id="record-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div class="px-6 py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
+    <div id="record-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6">
+        <div class="bg-white border border-[#E5EAEA] rounded-2xl max-w-3xl w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#E5EAEA] flex items-center justify-between bg-white">
                 <div class="flex items-center space-x-3">
-                    <h3 class="text-sm font-bold text-slate-800">Clinical Record Deep Dive</h3>
+                    <h3 class="text-xs sm:text-sm font-bold text-slate-800">Clinical Record Deep Dive</h3>
                     <span id="modal-status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">NORMALIZED</span>
                 </div>
                 <button onclick="closeRecordModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
@@ -984,9 +1178,9 @@
                 </button>
             </div>
             
-            <div class="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 bg-[#F7F9FA]">
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-5 text-xs text-slate-700 bg-[#F7F9FA]">
                 <!-- Record Metadata -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-xl border border-[#E5EAEA] font-mono shadow-sm">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 bg-white p-3.5 sm:p-4 rounded-xl border border-[#E5EAEA] font-mono shadow-sm">
                     <div>
                         <span class="text-slate-400 text-[10px]">Record ID:</span>
                         <div id="modal-record-id" class="text-slate-800 truncate mt-0.5 font-bold text-[11px]">-</div>
@@ -1011,7 +1205,7 @@
                         <span>Cleaned & Normalized Clinical Text</span>
                         <span class="text-[10px] text-emerald-600 font-semibold">Preserved dosages, vitals & units</span>
                     </h4>
-                    <pre id="modal-cleaned-text" class="bg-white border border-[#E5EAEA] rounded-xl p-4 font-mono text-slate-800 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto shadow-sm"></pre>
+                    <pre id="modal-cleaned-text" class="bg-white border border-[#E5EAEA] rounded-xl p-3 sm:p-4 font-mono text-slate-800 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto shadow-sm"></pre>
                 </div>
 
                 <!-- Structured Clinical Attributes & Intermediate Payload -->
@@ -1027,13 +1221,13 @@
                     </div>
 
                     <!-- Structured Attribute Grid -->
-                    <div id="modal-structured-payload" class="bg-white border border-[#E5EAEA] rounded-xl p-4 shadow-sm">
+                    <div id="modal-structured-payload" class="bg-white border border-[#E5EAEA] rounded-xl p-3 sm:p-4 shadow-sm">
                         <!-- Injected by modals.js -->
                     </div>
 
                     <!-- Collapsible Raw JSON Container (Hidden by default) -->
                     <div id="modal-raw-payload-wrapper" class="hidden space-y-1">
-                        <pre id="modal-parsed-payload" class="bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl p-4 font-mono text-[11px] text-slate-800 overflow-x-auto max-h-48 shadow-sm leading-relaxed"></pre>
+                        <pre id="modal-parsed-payload" class="bg-[#F7F9FA] border border-[#E5EAEA] rounded-xl p-3 sm:p-4 font-mono text-[11px] text-slate-800 overflow-x-auto max-h-48 shadow-sm leading-relaxed"></pre>
                     </div>
                 </div>
 
@@ -1047,7 +1241,7 @@
                 </div>
             </div>
 
-            <div class="px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
+            <div class="px-4 sm:px-6 py-3 border-t border-[#E5EAEA] bg-white flex justify-end">
                 <button onclick="closeRecordModal()" class="px-4 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
                     Close
                 </button>
@@ -1056,6 +1250,6 @@
     </div>
 
     <!-- Application Script (ES Module) -->
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="./src/main.js"></script>
 </body>
 </html>

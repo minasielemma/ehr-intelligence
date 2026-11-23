@@ -80,14 +80,30 @@ export async function apiRequest(endpoint, options = {}) {
             if (isJson) {
                 try {
                     const errData = await response.json();
-                    errorMsg = errData.detail || errData.message || (errData.error && errData.error.message) || errorMsg;
                     details = errData;
+                    if (typeof errData.error_message === "string" && errData.error_message.trim()) {
+                        errorMsg = errData.error_message.trim();
+                    } else if (typeof errData.detail === "string" && errData.detail.trim()) {
+                        errorMsg = errData.detail.trim();
+                    } else if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+                        errorMsg = errData.detail.map(d => {
+                            if (typeof d === "string") return d;
+                            const loc = Array.isArray(d.loc) ? d.loc.filter(l => l !== "body").join(".") : "";
+                            const msg = d.msg || d.message || JSON.stringify(d);
+                            return loc ? `${loc}: ${msg}` : msg;
+                        }).join("; ");
+                    } else if (typeof errData.message === "string" && errData.message.trim()) {
+                        errorMsg = errData.message.trim();
+                    } else if (errData.error) {
+                        errorMsg = typeof errData.error === "string" ? errData.error : (errData.error.message || JSON.stringify(errData.error));
+                    }
                 } catch {
                     // Ignore JSON parsing errors for error body
                 }
             } else {
                 try {
-                    errorMsg = await response.text();
+                    const txt = await response.text();
+                    if (txt && txt.trim()) errorMsg = txt.trim();
                 } catch {
                     // Ignore text errors
                 }
